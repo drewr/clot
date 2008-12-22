@@ -1,6 +1,7 @@
 (ns com.draines.clot.irc
   (:require [clojure.contrib.str-utils :as s-util])
   (:import [java.util Date UUID]
+           [java.util.regex Pattern]
            [java.text SimpleDateFormat]
            [java.net Socket SocketException]
            [java.io InputStreamReader BufferedReader OutputStreamWriter BufferedWriter FileWriter]
@@ -24,9 +25,6 @@
                                  (java.util.Date.))]
     (.write w (format "%s %s" timestamp s))))
 
-(defn connection [id]
-  (some #(and (= id (connection-id %)) %) @*connections*))
-
 (defn connection-id [conn]
   (.toUpperCase (str (:id conn))))
 
@@ -35,6 +33,17 @@
 
 (defn connection-name [conn]
   (format "%s@%s/%s" (:nick conn) (:host conn) (connection-id-short conn)))
+
+(defn connection [id]
+  (let [id (.toUpperCase (str id))
+        pat (Pattern/compile (format "^%s" id))
+        matches (fn [conn]
+                  (when (re-find (.matcher pat (connection-id conn)))
+                    conn))]
+    (some matches @*connections*)))
+
+(defn same-connection? [c1 c2]
+  (= (connection-id c1) (connection-id c2)))
 
 (defn connection-established? [conn]
   (contains? conn :created))
@@ -86,12 +95,9 @@
   (swap! *connections* conj conn))
 
 (defn unregister-connection [conn]
-  (let [not-this-conn (fn [c]
-                        (not (= (connection-id c)
-                                (connection-id conn))))]
-    (swap! *connections*
-           (fn [xs]
-             (filter not-this-conn xs)))))
+  (swap! *connections*
+         (fn [xs]
+           (filter #(not (same-connection? conn %)) xs))))
 
 (defn alive? [conn]
   (when (:sock conn)
