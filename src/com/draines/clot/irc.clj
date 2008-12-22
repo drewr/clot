@@ -114,10 +114,13 @@
            (filter #(not (same-connection? conn %)) xs))))
 
 (defn alive? [conn]
-  (when (:sock conn)
-    (and
-     (not (.isClosed (:sock conn)))
-     (not (.isInputShutdown (:sock conn))))))
+  (let [r (:retries conn)
+        s (:sock conn)]
+    (when (and r s)
+      (and
+       (not (.isClosed s))
+       (not (.isInputShutdown s))
+       (< @r *max-retries*)))))
 
 (defn quit [conn & do-not-reconnect]
   (let [_conn (connection conn)]
