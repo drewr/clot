@@ -29,7 +29,7 @@
   (.toUpperCase (str (:id conn))))
 
 (defn connection-id-short [conn]
-  (re-find #"^[^-]+" (connection-id conn)))
+  (re-find #"^.{4}" (connection-id conn)))
 
 (defn connection-name [conn]
   (format "%s@%s/%s" (:nick conn) (:host conn) (connection-id-short conn)))
