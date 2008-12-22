@@ -123,8 +123,8 @@
       (log _conn (format "shutting down: %s" (connection-name _conn)))
       (stop-incoming-queue _conn)
       (stop-outgoing-queue _conn)
-      (.close (:sock _conn))
-      (unregister-connection _conn))))
+      (.close (:sock _conn)))
+    (unregister-connection _conn)))
 
 (defn quit-all []
   (doseq [conn @*connections*]
