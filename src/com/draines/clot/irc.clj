@@ -8,7 +8,7 @@
            [java.util.concurrent LinkedBlockingQueue]))
 
 (def *logfile* "/tmp/clot.log")
-(def *channels* ["##test1"])
+(def *channels* ["##clot-test"])
 (def *keepalive-frequency* 45)
 (def *use-console* false)
 (def *max-retries* 10)
