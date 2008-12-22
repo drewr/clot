@@ -11,7 +11,7 @@
 (def *channels* ["##test1"])
 (def *keepalive-frequency* 45)
 (def *use-console* false)
-(def *connection-attempts* 5)
+(def *max-retries* 10)
 (def *watcher-interval* 10)
 (def *send-delay* 1)
 (def *watch* (atom true))
@@ -91,6 +91,18 @@
 (defn atom-set! [_atom value]
   (swap! _atom (fn [x] value)))
 
+(defn atom-dec! [a]
+  (swap! a dec))
+
+(defn atom-inc! [a]
+  (swap! a inc))
+
+(defn inc-retries! [conn]
+  (atom-inc! (:retries conn)))
+
+(defn reset-retries! [conn]
+  (atom-set! (:retries conn) 0))
+
 (defn register-connection [conn]
   (swap! *connections* conj conn))
 
@@ -129,17 +141,20 @@
   (.flush (:writer conn))
   (log conn (format "-> %s" line)))
 
+(defn do-PONG [conn]
+  (reset-retries! conn))
+
+(defn parse-msg! [conn msg]
+  (cond
+   (re-find #" PONG " msg) (do-PONG conn)))
+
 (defn dispatch [conn line]
-  (log conn line))
+  (log conn line)
+  (parse-msg! conn line))
 
 (defn ping [conn]
-  (sendmsg! conn (format "PING %d" (int (/ (System/currentTimeMillis) 1000)))))
-
-(defn init-attempts []
-  (atom *connection-attempts*))
-
-(defn atom-dec! [a]
-  (swap! a dec))
+  (sendmsg! conn (format "PING %d" (int (/ (System/currentTimeMillis) 1000))))
+  (inc-retries! conn))
 
 (defn reconnectable? [conn]
 ;  (and @(:reconnect conn)
@@ -189,15 +204,14 @@
     (send-off (agent conn) f)))
 
 (defn connect [conn]
-  (let [{:keys [host
-                port
-                nick]} conn
+  (let [{:keys [host port nick]} conn
         sock (Socket. host port)
         _conn (merge conn
                      {:id (UUID/randomUUID)
                       :sock sock
                       :reader (get-reader sock)
-                      :writer (get-writer sock)})
+                      :writer (get-writer sock)
+                      :retries (atom 0)})
         _conn (merge _conn {:inq (make-queue _conn dispatch)
                             :outq (make-queue _conn sendmsg! :sleep)})]
     (log _conn (format "connecting to %s:%d" host port))
@@ -215,13 +229,12 @@
                                 (sendmsg! _conn (format "NICK %s" n))
                                 (recur (read-line) n))
                (= code "004") (let [__conn (merge _conn {:created (now)
-                                                         :pinger (keep-alive _conn)
                                                          :nick _nick
-                                                         :remain (init-attempts)})
+                                                         :pinger (keep-alive _conn)})
                                     conn-connected (merge __conn {:listener (listen __conn)})]
                                 (log conn-connected (format "queue agent-errors: %s, %s"
-                                             (agent-errors (:inq conn-connected))
-                                             (agent-errors (:outq conn-connected))))
+                                                            (agent-errors (:inq conn-connected))
+                                                            (agent-errors (:outq conn-connected))))
                                 conn-connected)
                (re-find #"[45].." code) (throw
                                          (Exception.
