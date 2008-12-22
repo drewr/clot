@@ -138,7 +138,7 @@
 (defn make-queue [conn _dispatch & sleep]
   (let [a (agent {:q (LinkedBlockingQueue.)})
         f (fn [queue]
-            (log (format "start queue %s" _dispatch))
+            (log conn (format "start queue %s" _dispatch))
             (loop []
               (let [el (.take (:q queue))]
                 (when-not (= "STOP" (.toUpperCase (str el)))
@@ -146,7 +146,7 @@
                   (when sleep
                     (Thread/sleep (* 1000 *send-delay*)))
                   (recur))))
-            (log (format "stop queue %s" _dispatch))
+            (log conn (format "stop queue %s" _dispatch))
             :stopped)]
     (send-off a f)))
 
@@ -157,7 +157,7 @@
                 (Thread/sleep (* 1000 *keepalive-frequency*))
                 (ping c)
                 (recur))))]
-    (log "starting keep-alive")
+    (log conn "starting keep-alive")
     (send-off (agent conn) f)))
 
 (defn listen [conn]
@@ -175,7 +175,7 @@
                         (add-incoming-message _conn line)
                         (recur))
                       line))))))]
-    (log (format "listening to %s:%d" (:host conn) (:port conn)))
+    (log conn (format "listening to %s:%d" (:host conn) (:port conn)))
     (send-off (agent conn) f)))
 
 (defn connect [conn]
@@ -190,7 +190,7 @@
                       :writer (get-writer sock)})
         _conn (merge _conn {:inq (make-queue _conn dispatch)
                             :outq (make-queue _conn sendmsg! :sleep)})]
-    (log (format "connecting to %s:%d" host port))
+    (log _conn (format "connecting to %s:%d" host port))
     (sendmsg! _conn (format "NICK %s" nick))
     (sendmsg! _conn (format "USER foo 0 * :0.1"))
     (binding [*in* (:reader _conn)]
@@ -209,7 +209,7 @@
                                                          :nick _nick
                                                          :remain (init-attempts)})
                                     conn-connected (merge __conn {:listener (listen __conn)})]
-                                (log (format "queue agent-errors: %s, %s"
+                                (log conn-connected (format "queue agent-errors: %s, %s"
                                              (agent-errors (:inq conn-connected))
                                              (agent-errors (:outq conn-connected))))
                                 conn-connected)
