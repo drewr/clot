@@ -139,8 +139,7 @@
   true)
 
 (defn make-queue [conn _dispatch & sleep]
-  (let [a (agent {:q (LinkedBlockingQueue.)})
-        f (fn [queue]
+  (let [f (fn [queue]
             (log conn (format "start queue %s" _dispatch))
             (loop []
               (let [el (.take (:q queue))]
@@ -151,7 +150,7 @@
                   (recur))))
             (log conn (format "stop queue %s" _dispatch))
             :stopped)]
-    (send-off a f)))
+    (send-off (agent {:q (LinkedBlockingQueue.)}) f)))
 
 (defn keep-alive [conn]
   (let [f (fn [c]
