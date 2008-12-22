@@ -12,7 +12,7 @@
 (def *connection-attempts* 5)
 (def *retry-delay* 3)
 (def *send-delay* 1)
-(defonce *connections* (atom {}))
+(defonce *connections* (atom []))
 
 (def connect)
 
@@ -23,7 +23,7 @@
     (.write w (format "%s %s" timestamp s))))
 
 (defn connection [id]
-  (@*connections* id))
+  (some #(and (= id (connection-id %)) %) @*connections*))
 
 (defn connection-id [conn]
   (.toUpperCase (str (:id conn))))
@@ -81,10 +81,15 @@
   (swap! _atom (fn [x] value)))
 
 (defn register-connection [conn]
-  (swap! *connections* conj {(connection-id conn) conn}))
+  (swap! *connections* conj conn))
 
 (defn unregister-connection [conn]
-  (swap! *connections* dissoc (connection-id conn)))
+  (let [not-this-conn (fn [c]
+                        (not (= (connection-id c)
+                                (connection-id conn))))]
+    (swap! *connections*
+           (fn [xs]
+             (filter not-this-conn xs)))))
 
 (defn alive? [conn]
   (when (:sock conn)
@@ -93,19 +98,17 @@
      (not (.isInputShutdown (:sock conn))))))
 
 (defn quit [conn & do-not-reconnect]
-  (when (alive? conn)
-    (log conn (format "shutting down: %s" (connection-name conn)))
-    (stop-incoming-queue conn)
-    (stop-outgoing-queue conn)
-    (.close (:sock conn))
-    (when do-not-reconnect
-     ;      (atom-set! (:reconnect conn) false)
-    )
-    (unregister-connection conn)))
+  (let [_conn (if (:id conn) conn (connection conn))]
+    (when (alive? _conn)
+      (log _conn (format "shutting down: %s" (connection-name _conn)))
+      (stop-incoming-queue _conn)
+      (stop-outgoing-queue _conn)
+      (.close (:sock _conn))
+      (unregister-connection _conn))))
 
 (defn quit-all []
-  (doseq [id (keys @*connections*)]
-    (quit (connection id))))
+  (doseq [conn @*connections*]
+    (quit conn)))
 
 (defn get-reader [sock]
   (BufferedReader. (InputStreamReader. (.getInputStream sock))))
