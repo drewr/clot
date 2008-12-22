@@ -1,5 +1,5 @@
 (ns com.draines.clot.irc
-  (:import [java.util Date]
+  (:import [java.util Date UUID]
            [java.text SimpleDateFormat]
            [java.net Socket SocketException]
            [java.io InputStreamReader BufferedReader OutputStreamWriter BufferedWriter FileWriter]
@@ -22,15 +22,29 @@
                                  (java.util.Date.))]
     (.write w (format "%s %s" timestamp s))))
 
+(defn connection [id]
+  (@*connections* id))
+
+(defn connection-id [conn]
+;  (format "%s@%s/%s" (:nick conn) (:host conn) (.getTime (:created conn)))
+  (.toUpperCase (str (:id conn))))
+
+(defn connection-established? [conn]
+  (contains? conn :created))
+
 (defn append-stdout [s]
   (print s)
   (.flush *out*))
 
-(defn log [s]
-  (let [_s (format "*** %s\n" s)]
-    (append-file *logfile* _s)
-    (when *use-console*
-      (append-stdout _s))))
+(defn log
+  ([s]
+     (let [_s (format "*** %s\n" s)]
+       (append-file *logfile* _s)
+       (when *use-console*
+         (append-stdout _s))))
+  ([conn s]
+     (let [id (re-find #"^[^-]+" (connection-id conn))]
+       (log (format "[%s] %s" id s)))))
 
 (defn now []
   (Date.))
@@ -61,12 +75,6 @@
 (defn atom-set! [_atom value]
   (swap! _atom (fn [x] value)))
 
-(defn connection [id]
-  (@*connections* id))
-
-(defn connection-id [conn]
-  (format "%s@%s/%d" (:nick conn) (:host conn) (.getTime (:created conn))))
-
 (defn register-connection [conn]
   (swap! *connections* conj {(connection-id conn) conn}))
 
@@ -81,18 +89,18 @@
 
 (defn quit [conn & do-not-reconnect]
   (when (alive? conn)
-    (log "shutting down")
+    (log (format "shutting down: %s" (connection-id conn)))
     (stop-incoming-queue conn)
     (stop-outgoing-queue conn)
     (.close (:sock conn))
     (when do-not-reconnect
-      (atom-set! (:reconnect conn) false))
+     ;      (atom-set! (:reconnect conn) false)
+    )
     (unregister-connection conn)))
 
 (defn quit-all []
-  (loop []
-    (when (< 0 (count @*connections*))
-      (quit (second (first @*connections*)) true))))
+  (doseq [id (keys @*connections*)]
+    (quit (connection id))))
 
 (defn get-reader [sock]
   (BufferedReader. (InputStreamReader. (.getInputStream sock))))
@@ -103,10 +111,10 @@
 (defn sendmsg! [conn line]
   (.write (:writer conn) (format "%s\r\n" line))
   (.flush (:writer conn))
-  (log (format "-> %s" line)))
+  (log conn (format "-> %s" line)))
 
 (defn dispatch [conn line]
-  (log line))
+  (log conn line))
 
 (defn ping [conn]
   (sendmsg! conn (format "PING %d" (int (/ (System/currentTimeMillis) 1000)))))
@@ -118,13 +126,14 @@
   (swap! a dec))
 
 (defn reconnectable? [conn]
-  (and @(:reconnect conn)
-       (< 0 @(:remain conn))))
+;  (and @(:reconnect conn)
+;       (< 0 @(:remain conn)))
+  true)
 
 (defn make-queue [conn _dispatch & sleep]
   (let [a (agent {:q (LinkedBlockingQueue.)})
         f (fn [queue]
-            (log (format "make-queue: started %s" _dispatch))
+            (log (format "start queue %s" _dispatch))
             (loop []
               (let [el (.take (:q queue))]
                 (when-not (= "STOP" (.toUpperCase (str el)))
@@ -132,9 +141,8 @@
                   (when sleep
                     (Thread/sleep (* 1000 *send-delay*)))
                   (recur))))
-            (log (format "make-queue: stopped %s" _dispatch))
+            (log (format "stop queue %s" _dispatch))
             :stopped)]
-    (log (format "make-queue: %s -> %s" _dispatch a))
     (send-off a f)))
 
 (defn keep-alive [conn]
@@ -149,50 +157,35 @@
 
 (defn listen [conn]
   (let [f (fn [_conn]
-            (log (format "listen: %s" _conn))
-            (loop [__conn _conn]
-              (let [is-connected (atom true)
-                    connected (fn [c]
-                                c)
-                    reconnecting (fn [c]
-                                   (atom-dec! (:remain c))
-                                   (log (format "reconnecting: %s" c))
-                                   (connect c))]
-                (binding [*in* (:reader __conn)]
+            (loop []
+              (let [is-connected (atom true)]
+                (binding [*in* (:reader _conn)]
                   (let [line (try
                               (read-line)
                               (catch SocketException e
                                 (toggle is-connected)
-                                (log (format "toggle is-connected to %s" is-connected))
-                                (log "quitting __conn")
-                                (quit __conn)
-                                (log (format "__conn reconnectable? %s" (reconnectable? __conn)))
-                                __conn))]
+                                {:exception e}))]
                     (if (and @is-connected line)
                       (do
-                        (add-incoming-message __conn line)
-                        (recur (connected __conn)))
-                      (when (reconnectable? __conn)
-                        (log (format "sleeping for %d seconds" *retry-delay*))
-                        (Thread/sleep (* 1000 *retry-delay*))
-                        (log (format "reconnecting (%d times left)" @(:remain __conn)))
-                        (recur (reconnecting __conn)))))))))]
+                        (add-incoming-message _conn line)
+                        (recur))
+                      line))))))]
     (log (format "listening to %s:%d" (:host conn) (:port conn)))
     (send-off (agent conn) f)))
 
 (defn connect [conn]
-  (let [{:keys [host port nick]} conn
+  (let [{:keys [host
+                port
+                nick]} conn
         sock (Socket. host port)
         _conn (merge conn
-                     {:sock sock
+                     {:id (UUID/randomUUID)
+                      :sock sock
                       :reader (get-reader sock)
                       :writer (get-writer sock)})
-        foo (log (format "connect (foo): %s" _conn))
         _conn (merge _conn {:inq (make-queue _conn dispatch)
-                            :outq (make-queue _conn sendmsg! :sleep)})
-        bar (log (format "connect (bar): %s" _conn))]
-    (log (format "connect: %s" _conn))
-    ;; (log (format "connecting to %s:%d" host port))
+                            :outq (make-queue _conn sendmsg! :sleep)})]
+    (log (format "connecting to %s:%d" host port))
     (sendmsg! _conn (format "NICK %s" nick))
     (sendmsg! _conn (format "USER foo 0 * :0.1"))
     (binding [*in* (:reader _conn)]
@@ -206,14 +199,14 @@
                (= code "433") (let [n (str _nick "-")]
                                 (sendmsg! _conn (format "NICK %s" n))
                                 (recur (read-line) n))
-               (= code "004") (let [__conn (merge _conn {:pinger (keep-alive _conn)
+               (= code "004") (let [__conn (merge _conn {:created (now)
+                                                         :pinger (keep-alive _conn)
                                                          :nick _nick
-                                                         :created (now)
-                                                         :reconnect (atom true)
                                                          :remain (init-attempts)})
                                     conn-connected (merge __conn {:listener (listen __conn)})]
-                                (log (format "connect: %s" (sort (keys conn-connected))))
-                                (register-connection conn-connected)
+                                (log (format "queue agent-errors: %s, %s"
+                                             (agent-errors (:inq conn-connected))
+                                             (agent-errors (:outq conn-connected))))
                                 conn-connected)
                (re-find #"[45].." code) (throw
                                          (Exception.
@@ -221,33 +214,46 @@
                :else (recur (read-line) _nick)))
             (recur (read-line) _nick)))))))
 
-(defn make-privmsg [conn]
+(defn log-in [host port nick]
+  (let [conn (connect {:host host :port port :nick nick})]
+    (register-connection conn)
+    (connection-id conn)))
+
+(defn make-privmsg [id]
   (fn [chan msg]
-    (sendmsg conn (format "PRIVMSG %s :%s" chan msg))))
+    (sendmsg (connection id) (format "PRIVMSG %s :%s" chan msg))))
 
-(defn make-join [conn]
+(defn make-join [id]
   (fn [chan]
-    (sendmsg conn (format "JOIN %s" chan))))
+    (sendmsg (connection id) (format "JOIN %s" chan))))
 
-(defn make-part [conn]
+(defn make-part [id]
   (fn [chan]
-    (sendmsg conn (format "PART %s" chan))))
+    (sendmsg (connection id) (format "PART %s" chan))))
 
-(defn make-whois [conn]
+(defn make-whois [id]
   (fn [nick]
-    (sendmsg conn (format "WHOIS %s" nick))))
+    (sendmsg (connection id) (format "WHOIS %s" nick))))
 
 (comment
   (do
-    (def *conn* (connect {:host "irc.freenode.net" :port 6667 :nick "drewr"}))
-    (def privmsg (make-privmsg *conn*))
-    (def join (make-join *conn*))
-    (def part (make-part *conn*))
-    (def whois (make-whois *conn*))
+    (def *id* (log-in "irc.freenode.net" 6667 "drewr"))
+    (def privmsg (make-privmsg *id*))
+    (def join (make-join *id*))
+    (def part (make-part *id*))
+    (def whois (make-whois *id*))
     (doseq [ch *channels*] (join ch)))
 
-  (uptime *conn*)
-  (quit *conn*)
+  (do
+    (def *id2* (log-in "irc.freenode.net" 6667 "drewrtest"))
+    (def privmsg2 (make-privmsg *id2*))
+    (def join2 (make-join *id2*))
+    (def part2 (make-part *id2*))
+    (def whois2 (make-whois *id2*))
+    (doseq [ch *channels*] (join2 ch)))
+
+  (uptime *id*)
+  (quit *id*)
   (quit-all)
   (System/exit 0)
 )
