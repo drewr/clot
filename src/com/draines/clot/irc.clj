@@ -1,4 +1,5 @@
 (ns com.draines.clot.irc
+  (:require [clojure.contrib.str-utils :as s-util])
   (:import [java.util Date UUID]
            [java.text SimpleDateFormat]
            [java.net Socket SocketException]
@@ -10,8 +11,9 @@
 (def *keepalive-frequency* 45)
 (def *use-console* false)
 (def *connection-attempts* 5)
-(def *retry-delay* 3)
+(def *watcher-interval* 10)
 (def *send-delay* 1)
+(def *watch* (atom true))
 (defonce *connections* (atom []))
 
 (def connect)
@@ -221,6 +223,26 @@
                :else (recur (read-line) _nick)))
             (recur (read-line) _nick)))))))
 
+(defn watch [conns]
+  (send-off
+   (agent conns)
+   (fn [_conns]
+     (log "watcher: start")
+     (let [status (fn [c]
+                      (format "%s: %s"
+                              (connection-id-short c)
+                              (if (alive? c) (format "UP %d" (uptime c)) "DOWN")))]
+       (loop []
+         (when @*watch*
+           (log (format "watcher: %s"
+                        (if (< 0 (count @_conns))
+                          (s-util/str-join ", " (map status @_conns))
+                          "no connections")))
+           (Thread/sleep (* 1000 *watcher-interval*))
+           (recur))))
+     (log "watcher: stop")
+     (format "stopped %s" (now)))))
+
 (defn log-in [host port nick]
   (let [conn (connect {:host host :port port :nick nick})]
     (register-connection conn)
@@ -258,6 +280,8 @@
     (def part2 (make-part *id2*))
     (def whois2 (make-whois *id2*))
     (doseq [ch *channels*] (join2 ch)))
+
+  (def *watcher* (watch *connections*))
 
   (uptime *id*)
   (quit *id*)
