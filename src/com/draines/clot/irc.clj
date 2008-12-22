@@ -26,8 +26,13 @@
   (@*connections* id))
 
 (defn connection-id [conn]
-;  (format "%s@%s/%s" (:nick conn) (:host conn) (.getTime (:created conn)))
   (.toUpperCase (str (:id conn))))
+
+(defn connection-id-short [conn]
+  (re-find #"^[^-]+" (connection-id conn)))
+
+(defn connection-name [conn]
+  (format "%s@%s/%s" (:nick conn) (:host conn) (connection-id-short conn)))
 
 (defn connection-established? [conn]
   (contains? conn :created))
@@ -43,7 +48,7 @@
        (when *use-console*
          (append-stdout _s))))
   ([conn s]
-     (let [id (re-find #"^[^-]+" (connection-id conn))]
+     (let [id (connection-id-short conn)]
        (log (format "[%s] %s" id s)))))
 
 (defn now []
@@ -89,7 +94,7 @@
 
 (defn quit [conn & do-not-reconnect]
   (when (alive? conn)
-    (log (format "shutting down: %s" (connection-id conn)))
+    (log conn (format "shutting down: %s" (connection-name conn)))
     (stop-incoming-queue conn)
     (stop-outgoing-queue conn)
     (.close (:sock conn))
