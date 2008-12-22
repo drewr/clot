@@ -35,12 +35,14 @@
   (format "%s@%s/%s" (:nick conn) (:host conn) (connection-id-short conn)))
 
 (defn connection [id]
-  (let [id (.toUpperCase (str id))
-        pat (Pattern/compile (format "^%s" id))
-        matches (fn [conn]
-                  (when (re-find (.matcher pat (connection-id conn)))
-                    conn))]
-    (some matches @*connections*)))
+  (if (map? id)
+    id
+    (let [id (.toUpperCase (str id))
+          pat (Pattern/compile (format "^%s" id))
+          matches (fn [conn]
+                    (when (re-find (.matcher pat (connection-id conn)))
+                      conn))]
+      (some matches @*connections*))))
 
 (defn same-connection? [c1 c2]
   (= (connection-id c1) (connection-id c2)))
@@ -118,7 +120,7 @@
      (not (.isInputShutdown (:sock conn))))))
 
 (defn quit [conn & do-not-reconnect]
-  (let [_conn (if (:id conn) conn (connection conn))]
+  (let [_conn (connection conn)]
     (when (alive? _conn)
       (log _conn (format "shutting down: %s" (connection-name _conn)))
       (stop-incoming-queue _conn)
