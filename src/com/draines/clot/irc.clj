@@ -50,6 +50,12 @@
 (defn connection-established? [conn]
   (contains? conn :created))
 
+(defn outgoing-queues []
+  (map #(deref (:outq %)) @*connections*))
+
+(defn incoming-queues []
+  (map #(deref (:inq %)) @*connections*))
+
 (defn append-stdout [s]
   (print s)
   (.flush *out*))
@@ -113,14 +119,31 @@
          (fn [xs]
            (filter #(not (same-connection? conn %)) xs))))
 
+(defn connection-agent-errors [conn]
+  (reduce #(conj %1 %2) {} (for [[k v] (select-keys conn [:listener :outq :inq])]
+                             {k (agent-errors v)})))
+
+(defn connection-agent-errors? [conn]
+  (some identity (vals (connection-agent-errors conn))))
+
 (defn alive? [conn]
   (let [r (:retries conn)
         s (:sock conn)]
     (when (and r s)
       (and
+       (not (connection-agent-errors? conn))
        (not (.isClosed s))
        (not (.isInputShutdown s))
        (< @r *max-retries*)))))
+
+(defn dead? [conn]
+  (not (alive? conn)))
+
+(defn reconnect? [conn]
+  @(:reconnect! conn))
+
+(defn reconnect [conn]
+  (swap! (:reconnect! conn) (fn [x] true)))
 
 (defn quit [conn & do-not-reconnect]
   (let [_conn (connection conn)]
@@ -166,7 +189,24 @@
 ;       (< 0 @(:remain conn)))
   true)
 
+(defn connection-statuses []
+  (map #(format "%s: %s"
+                (connection-id-short %)
+                (if (alive? %) (format "UP %d" (uptime %)) "DOWN")) @*connections*))
+
 (defn make-queue [conn _dispatch & sleep]
+  (let [f (fn resend [queue]
+            (let [el (.take (:q queue))]
+              (when-not (= "STOP" (.toUpperCase (str el)))
+                (_dispatch conn el)
+                (when sleep
+                  (Thread/sleep (* 1000 *send-delay*)))
+                (send-off *agent* resend)))
+            queue)]
+    (log conn (format "start queue %s" _dispatch))
+    (send-off (agent {:q (LinkedBlockingQueue.)}) f)))
+
+(defn make-queue1 [conn _dispatch & sleep]
   (let [f (fn [queue]
             (log conn (format "start queue %s" _dispatch))
             (loop []
@@ -181,32 +221,33 @@
     (send-off (agent {:q (LinkedBlockingQueue.)}) f)))
 
 (defn keep-alive [conn]
-  (let [f (fn [c]
-            (loop []
-              (when (alive? c)
-                (Thread/sleep (* 1000 *keepalive-frequency*))
-                (ping c)
-                (recur))))]
+  (let [f (fn resend [c]
+            (when (alive? c)
+              (Thread/sleep (* 1000 *keepalive-frequency*))
+              (ping c)
+              (send-off *agent* resend)
+              c))]
     (log conn "starting keep-alive")
     (send-off (agent conn) f)))
 
 (defn listen [conn]
-  (let [f (fn [_conn]
-            (loop []
-              (let [is-connected (atom true)]
-                (binding [*in* (:reader _conn)]
-                  (let [line (try
-                              (read-line)
-                              (catch SocketException e
-                                (toggle is-connected)
-                                {:exception e}))]
-                    (if (and @is-connected line)
-                      (do
-                        (add-incoming-message _conn line)
-                        (recur))
-                      line))))))]
-    (log conn (format "listening to %s:%d" (:host conn) (:port conn)))
-    (send-off (agent conn) f)))
+  (log conn (format "listening on %s:%d" (:host conn) (.getLocalPort (:sock conn))))
+  (send-off
+   (agent conn)
+   (fn resend [_conn]
+     (let [is-connected (atom true)]
+       (binding [*in* (:reader _conn)]
+         (let [line (try
+                     (read-line)
+                     (catch SocketException e
+                       (toggle is-connected)
+                       {:exception e}))]
+           (if (and @is-connected line)
+             (do
+               (add-incoming-message _conn line)
+               (send-off *agent* resend)
+               _conn)
+             line)))))))
 
 (defn connect [conn]
   (let [{:keys [host port nick]} conn
@@ -216,7 +257,8 @@
                       :sock sock
                       :reader (get-reader sock)
                       :writer (get-writer sock)
-                      :retries (atom 0)})
+                      :retries (atom 0)
+                      :reconnect! (atom false)})
         _conn (merge _conn {:inq (make-queue _conn dispatch)
                             :outq (make-queue _conn sendmsg! :sleep)})]
     (log _conn (format "connecting to %s:%d" host port))
@@ -247,30 +289,33 @@
                :else (recur (read-line) _nick)))
             (recur (read-line) _nick)))))))
 
-(defn watch [conns]
-  (send-off
-   (agent conns)
-   (fn [_conns]
-     (log "watcher: start")
-     (let [status (fn [c]
-                      (format "%s: %s"
-                              (connection-id-short c)
-                              (if (alive? c) (format "UP %d" (uptime c)) "DOWN")))]
-       (loop []
-         (when @*watch*
-           (log (format "watcher: %s"
-                        (if (< 0 (count @_conns))
-                          (s-util/str-join ", " (map status @_conns))
-                          "no connections")))
-           (Thread/sleep (* 1000 *watcher-interval*))
-           (recur))))
-     (log "watcher: stop")
-     (format "stopped %s" (now)))))
-
 (defn log-in [host port nick]
   (let [conn (connect {:host host :port port :nick nick})]
     (register-connection conn)
-    (connection-id conn)))
+    (connection-id-short conn)))
+
+(defn watch [conns]
+  (log "watcher: start")
+  (send-off
+   (agent conns)
+   (fn resend [_conns]
+     (let [logmsg (fn [statuses]
+                    (format "watcher: %s"
+                            (if (< 0 (count @_conns))
+                              (s-util/str-join ", " statuses)
+                              "no connections")))
+           dead (filter dead? @_conns)
+           want-reconnect (filter reconnect? @_conns)]
+       (when @*watch*
+         (log (logmsg (connection-statuses)))
+         (doseq [c (concat dead want-reconnect)]
+           (quit c)
+           (let [{:keys [host port nick]} c
+                 newc (log-in host port nick)]
+             (log (format "watcher: reconnecting %s@%s as %s" nick host newc))))
+         (Thread/sleep (* 1000 *watcher-interval*))
+         (send-off *agent* resend)))
+     conns)))
 
 (defn make-privmsg [id]
   (fn [chan msg]
@@ -290,7 +335,7 @@
 
 (comment
   (do
-    (def *id* (log-in "irc.freenode.net" 6667 "drewr"))
+    (def *id* (log-in "irc.freenode.net" 6667 "drewr1"))
     (def privmsg (make-privmsg *id*))
     (def join (make-join *id*))
     (def part (make-part *id*))
@@ -298,7 +343,7 @@
     (doseq [ch *channels*] (join ch)))
 
   (do
-    (def *id2* (log-in "irc.freenode.net" 6667 "drewrtest"))
+    (def *id2* (log-in "irc.freenode.net" 6667 "drewr2"))
     (def privmsg2 (make-privmsg *id2*))
     (def join2 (make-join *id2*))
     (def part2 (make-part *id2*))
