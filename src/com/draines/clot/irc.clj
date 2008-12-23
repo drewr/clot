@@ -14,13 +14,16 @@
 (def *keepalive-frequency* 45)
 (def *use-console* false)
 (def *max-failed-pings* 3)
-(def *watcher-interval* 60)
+(def *watcher-interval* 20)
 (def *send-delay* 1)
 (def *watch* (atom true))
 (defonce *next-id* (atom 1))
 (defonce *connections* (atom []))
 
+(def log-in)
 (def connect)
+(def alive?)
+(def quit)
 
 (defn append-file [filename s]
   (let [timestamp (.format (SimpleDateFormat. "yyyy-MM-dd HH:mm:ss.SSS")
@@ -156,6 +159,11 @@
 
 (defn reconnect [conn]
   (swap! (:reconnect! conn) (fn [x] true)))
+
+(defn reconnect! [conn]
+  (let [{:keys [host port nick]} conn]
+    (quit conn)
+    (log-in host port nick)))
 
 (defn quit [conn & do-not-reconnect]
   (let [_conn (connection conn)]
@@ -320,14 +328,17 @@
            want-reconnect (filter reconnect? @_conns)]
        (when @*watch*
          (log (logmsg (connection-statuses)))
-         (doseq [c (concat dead want-reconnect)]
-           (quit c)
-           (let [{:keys [host port nick]} c
-                 newc (log-in host port nick)]
-             (log (format "watcher: reconnecting %s@%s as %s" nick host newc))))
-         (Thread/sleep (* 1000 *watcher-interval*))
+         (let [to-reconnect (concat dead want-reconnect)
+               waiting? (< 0 (count to-reconnect))]
+           (if waiting?
+             (doseq [c to-reconnect]
+               (let [{:keys [host port nick]} c]
+                 (log (format "watcher: reconnecting %s@%s" nick host))
+                 (let [newc (reconnect! c)]
+                   (log (format "watcher: reconnected as %d" newc)))))
+             (Thread/sleep (* 1000 *watcher-interval*))))
          (send-off *agent* resend)))
-     conns)))
+     _conns)))
 
 (defn do-PRIVMSG [conn chan msg]
   (sendmsg (connection conn) (format "PRIVMSG %s :%s" chan msg)))
