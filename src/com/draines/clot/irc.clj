@@ -219,8 +219,7 @@
           fname (second (re-find #"^:(.*)" (str verb)))
           f (find-var (symbol (format "%s/->%s" (str (:ns (meta #'dispatch))) fname)))]
       (when f
-        (prn f)
-        (f conn args)))
+        (send-off (agent conn) f args)))
     (log conn line)))
 
 (defn ping [conn]
