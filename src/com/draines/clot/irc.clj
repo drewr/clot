@@ -258,19 +258,25 @@
                _conn)
              line)))))))
 
-(defn connect [conn]
-  (let [{:keys [host port nick]} conn
+(defn connect [info]
+  (let [{:keys [host port nick]} info
         sock (Socket. host port)
-        _conn (merge conn
-                     {:id (atom-inc! *next-id*)
-                      :uuid (UUID/randomUUID)
-                      :sock sock
-                      :reader (get-reader sock)
-                      :writer (get-writer sock)
-                      :retries (atom 0)
-                      :reconnect! (atom false)})
-        _conn (merge _conn {:inq (make-queue _conn dispatch)
-                            :outq (make-queue _conn sendmsg! :sleep)})]
+        _conn (merge (sorted-map :id (atom-inc! *next-id*)
+                                 :uuid (UUID/randomUUID)
+                                 :sock sock
+                                 :reader (get-reader sock)
+                                 :writer (get-writer sock)
+                                 :retries (atom 0)
+                                 :reconnect! (atom false)
+                                 :pinger nil
+                                 :inq nil
+                                 :outq nil
+                                 :listener nil
+                                 :created nil) info)
+        add-in-queue (fn [m] (merge m {:inq (make-queue m dispatch)}))
+        add-out-queue (fn [m] (merge m {:outq (make-queue m sendmsg! :sleep)}))
+        add-pinger (fn [m] (merge m {:pinger (keep-alive m)}))
+        add-listener (fn [m] (merge m {:listener (listen m)}))]
     (log _conn (format "connecting to %s:%d" host port))
     (sendmsg! _conn (format "NICK %s" nick))
     (sendmsg! _conn (format "USER foo 0 * :0.1"))
@@ -285,14 +291,12 @@
                (= code "433") (let [n (str _nick "-")]
                                 (sendmsg! _conn (format "NICK %s" n))
                                 (recur (read-line) n))
-               (= code "004") (let [__conn (merge _conn {:created (now)
-                                                         :nick _nick
-                                                         :pinger (keep-alive _conn)})
-                                    conn-connected (merge __conn {:listener (listen __conn)})]
-                                (log conn-connected (format "queue agent-errors: %s, %s"
-                                                            (agent-errors (:inq conn-connected))
-                                                            (agent-errors (:outq conn-connected))))
-                                conn-connected)
+               (= code "004") (add-pinger
+                               (add-listener
+                                (add-out-queue
+                                 (add-in-queue
+                                  (merge _conn {:created (now)
+                                                :nick _nick})))))
                (re-find #"[45].." code) (throw
                                          (Exception.
                                           (format "%s: cannot connect to server" code)))
