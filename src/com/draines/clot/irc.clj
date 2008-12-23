@@ -12,7 +12,7 @@
 (def *keepalive-frequency* 45)
 (def *use-console* false)
 (def *max-retries* 10)
-(def *watcher-interval* 10)
+(def *watcher-interval* 60)
 (def *send-delay* 1)
 (def *watch* (atom true))
 (def *next-id* (atom 1))
@@ -364,8 +364,7 @@
     (def whois2 (make-whois *id2*))
     (doseq [ch *channels*] (join2 ch)))
 
-  (def *watcher* (watch *connections*))
-
+  (watch *connections*)
   (uptime *id*)
   (quit *id*)
   (quit-all)
