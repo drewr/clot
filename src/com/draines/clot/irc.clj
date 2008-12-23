@@ -18,7 +18,7 @@
 (def *send-delay* 1)
 (def *watch* (atom true))
 (defonce *next-id* (atom 1))
-(defonce *connections* (atom []))
+(defonce *connections* (ref []))
 
 (def log-in)
 (def connect)
@@ -127,12 +127,14 @@
   (atom-set! (:pings conn) 0))
 
 (defn register-connection [conn]
-  (swap! *connections* conj conn))
+  (dosync
+   (commute *connections* conj conn)))
 
 (defn unregister-connection [conn]
-  (swap! *connections*
-         (fn [xs]
-           (filter #(not (same-connection? conn %)) xs))))
+  (dosync
+   (commute *connections*
+            (fn [xs]
+              (filter #(not (same-connection? conn %)) xs)))))
 
 (defn connection-agent-errors [conn]
   (reduce #(conj %1 %2) {} (for [[k v] (select-keys conn [:listener :outq :inq])]
@@ -175,8 +177,9 @@
     (unregister-connection _conn)))
 
 (defn quit-all []
-  (doseq [conn @*connections*]
-    (quit conn)))
+  (dosync
+   (doseq [conn @*connections*]
+     (quit conn))))
 
 (defn get-reader [sock]
   (BufferedReader. (InputStreamReader. (.getInputStream sock))))
