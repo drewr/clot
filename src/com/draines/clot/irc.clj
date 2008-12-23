@@ -306,11 +306,6 @@
                :else (recur (read-line) _nick)))
             (recur (read-line) _nick)))))))
 
-(defn log-in [host port nick]
-  (let [conn (connect {:host host :port port :nick nick})]
-    (register-connection conn)
-    (connection-id conn)))
-
 (defn watch [conns]
   (log "watcher: start")
   (send-off
@@ -350,26 +345,24 @@
   (fn [nick]
     (sendmsg (connection id) (format "WHOIS %s" nick))))
 
+(defn do-JOIN [conn chan]
+  (sendmsg (connection conn) (format "JOIN %s" chan)))
+
+(defn log-in [host port nick]
+  (let [conn (connect {:host host :port port :nick nick})]
+    (register-connection conn)
+    (doseq [ch *channels*]
+      (do-JOIN conn ch))
+    (connection-id conn)))
+
 (comment
-  (do
-    (def *id* (log-in "irc.freenode.net" 6667 "drewr1"))
-    (def privmsg (make-privmsg *id*))
-    (def join (make-join *id*))
-    (def part (make-part *id*))
-    (def whois (make-whois *id*))
-    (doseq [ch *channels*] (join ch)))
-
-  (do
-    (def *id2* (log-in "irc.freenode.net" 6667 "drewr2"))
-    (def privmsg2 (make-privmsg *id2*))
-    (def join2 (make-join *id2*))
-    (def part2 (make-part *id2*))
-    (def whois2 (make-whois *id2*))
-    (doseq [ch *channels*] (join2 ch)))
-
   (watch *connections*)
-  (uptime *id*)
-  (quit *id*)
+  (def conn1 (log-in "irc.freenode.net" 6667 "drewr1"))
+  (def conn2 (log-in "irc.freenode.net" 6667 "drewr2"))
+  (uptime conn1)
+  (uptime conn2)
+  (quit conn1)
+  (quit conn2)
   (quit-all)
   (System/exit 0)
 )
