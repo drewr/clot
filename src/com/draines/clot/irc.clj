@@ -355,9 +355,11 @@
 (defn do-IDENTIFY [conn password]
   (do-PRIVMSG conn "nickserv" (format "identify %s" password)))
 
-(defn log-in [host port nick]
+(defn log-in [host port nick & [password]]
   (let [conn (connect {:host host :port port :nick nick})]
     (register-connection conn)
+    (when password
+      (do-IDENTIFY conn password))
     (doseq [ch *channels*]
       (do-JOIN conn ch))
     (connection-id conn)))
@@ -372,4 +374,5 @@
   (quit conn2)
   (quit-all)
   (System/exit 0)
+
 )
