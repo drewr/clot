@@ -329,21 +329,14 @@
          (send-off *agent* resend)))
      conns)))
 
-(defn make-privmsg [id]
-  (fn [chan msg]
-    (sendmsg (connection id) (format "PRIVMSG %s :%s" chan msg))))
+(defn do-PRIVMSG [conn chan msg]
+  (sendmsg (connection conn) (format "PRIVMSG %s :%s" chan msg)))
 
-(defn make-join [id]
-  (fn [chan]
-    (sendmsg (connection id) (format "JOIN %s" chan))))
+(defn do-PART [conn chan]
+  (sendmsg (connection conn) (format "PART %s" chan)))
 
-(defn make-part [id]
-  (fn [chan]
-    (sendmsg (connection id) (format "PART %s" chan))))
-
-(defn make-whois [id]
-  (fn [nick]
-    (sendmsg (connection id) (format "WHOIS %s" nick))))
+(defn do-WHOIS [conn nick]
+  (sendmsg (connection conn) (format "WHOIS %s" nick)))
 
 (defn do-JOIN [conn chan]
   (sendmsg (connection conn) (format "JOIN %s" chan)))
