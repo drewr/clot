@@ -14,7 +14,7 @@
 (def *keepalive-frequency* 45)
 (def *use-console* false)
 (def *max-failed-pings* 3)
-(def *watcher-interval* 20)
+(def *watcher-interval* 60)
 (def *send-delay* 1)
 (def *watch* (atom true))
 (defonce *next-id* (atom 1))
@@ -207,10 +207,10 @@
   (sendmsg! conn (format "PING %d" (int (/ (System/currentTimeMillis) 1000))))
   (inc-pings! conn))
 
-(defn connection-statuses []
+(defn connection-statuses [conns]
   (map #(format "%s: %s"
                 (connection-id %)
-                (if (alive? %) (format "UP %d" (uptime %)) "DOWN")) @*connections*))
+                (if (alive? %) (format "UP %d" (uptime %)) "DOWN")) conns))
 
 (defn make-queue [conn _dispatch & sleep]
   (let [f (fn resend [queue]
@@ -313,30 +313,32 @@
             (recur (read-line) _nick)))))))
 
 (defn watch [conns]
-  (log "watcher: start")
-  (send-off
-   (agent conns)
-   (fn resend [_conns]
-     (let [logmsg (fn [statuses]
+  (let [statusmsg (fn [statuses]
                     (format "watcher: %s"
-                            (if (< 0 (count @_conns))
+                            (if statuses
                               (s-util/str-join ", " statuses)
-                              "no connections")))
-           dead (filter dead? @_conns)
-           want-reconnect (filter reconnect? @_conns)]
-       (when @*watch*
-         (log (logmsg (connection-statuses)))
-         (let [to-reconnect (concat dead want-reconnect)
+                              "no connections")))]
+    (log "watcher: start")
+    (send-off
+     (agent conns)
+     (fn resend [_conns]
+       (if @*watch*
+         (let [to-reconnect (dosync
+                             (concat
+                              (filter dead? @_conns)
+                              (filter reconnect? @_conns)))
                waiting? (< 0 (count to-reconnect))]
-           (if waiting?
+           (if-not waiting?
+             (do
+               (log (statusmsg (connection-statuses @_conns)))
+               (Thread/sleep (* 1000 *watcher-interval*)))
              (doseq [c to-reconnect]
                (let [{:keys [host port nick]} c]
-                 (log (format "watcher: reconnecting %s@%s" nick host))
-                 (let [newc (reconnect! c)]
-                   (log (format "watcher: reconnected as %d" newc)))))
-             (Thread/sleep (* 1000 *watcher-interval*))))
-         (send-off *agent* resend)))
-     _conns)))
+                 (log (format "watcher: reconnecting %s@%s" nick host)))
+               (reconnect! c)))
+           (send-off *agent* resend))
+         (log "watcher: stop"))
+       _conns))))
 
 (defn do-PRIVMSG [conn chan msg]
   (sendmsg (connection conn) (format "PRIVMSG %s :%s" chan msg)))
