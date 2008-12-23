@@ -8,6 +8,8 @@
            [java.util.concurrent LinkedBlockingQueue]))
 
 (def *logfile* "/tmp/clot.log")
+(def *logger* (agent *logfile*))
+(def *stdout* (agent nil))
 (def *channels* ["##clot-test"])
 (def *keepalive-frequency* 45)
 (def *use-console* false)
@@ -24,7 +26,8 @@
   (let [timestamp (.format (SimpleDateFormat. "yyyy-MM-dd HH:mm:ss.SSS")
                            (java.util.Date.))]
     (with-open [w (FileWriter. filename true)]
-      (.write w (format "%s %s" timestamp s)))))
+      (.write w (format "%s %s" timestamp s)))
+    filename))
 
 (defn connection-id [conn]
   (:id conn))
@@ -65,16 +68,16 @@
 (defn incoming-queues []
   (map #(deref (:inq %)) @*connections*))
 
-(defn append-stdout [s]
+(defn append-stdout [x s]
   (print s)
   (.flush *out*))
 
 (defn log
   ([s]
      (let [_s (format "*** %s\n" s)]
-       (append-file *logfile* _s)
        (when *use-console*
-         (append-stdout _s))))
+         (send-off *stdout* append-stdout _s))
+       (send-off *logger* append-file _s)))
   ([conn s]
      (let [id (connection-id conn)]
        (log (format "[%d] %s" id s)))))
