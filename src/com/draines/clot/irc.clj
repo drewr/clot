@@ -26,7 +26,7 @@
     (.write w (format "%s %s" timestamp s))))
 
 (defn connection-id [conn]
-  (.toUpperCase (str (:id conn))))
+  (.toUpperCase (str (:uuid conn))))
 
 (defn connection-id-short [conn]
   (re-find #"^.{4}" (connection-id conn)))
@@ -253,7 +253,7 @@
   (let [{:keys [host port nick]} conn
         sock (Socket. host port)
         _conn (merge conn
-                     {:id (UUID/randomUUID)
+                     {:uuid (UUID/randomUUID)
                       :sock sock
                       :reader (get-reader sock)
                       :writer (get-writer sock)
