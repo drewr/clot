@@ -25,6 +25,10 @@
 (def alive?)
 (def quit)
 
+(def *irc-verbs*
+     {:PRIVMSG #"^:([^!]+)!n=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"
+      :PONG    #"^:([^ ]+) PONG ([^ ]+) :(.*)"})
+
 (defn append-file [filename s]
   (let [timestamp (.format (SimpleDateFormat. "yyyy-MM-dd HH:mm:ss.SSS")
                            (java.util.Date.))]
@@ -192,16 +196,32 @@
   (.flush (:writer conn))
   (log conn (format "-> %s" line)))
 
-(defn do-PONG [conn]
-  (reset-pings! conn))
+(defn ->PONG [conn args]
+  (reset-pings! conn)
+  (log conn (format "PONG %s" args)))
 
-(defn parse-msg! [conn msg]
-  (cond
-   (re-find #" PONG " msg) (do-PONG conn)))
+(defn ->PRIVMSG [conn args]
+  (let [[nick user userhost chan msg] args]
+    (log conn (format "%s said, \"%s\" on %s" nick msg chan))))
+
+(defn msg-tokens [msg]
+  (loop [pairs *irc-verbs*]
+    (let [[verb pattern] (first pairs)]
+      (when verb
+        (let [tokens (re-find pattern msg)]
+          (if tokens
+            [verb (rest tokens)]
+            (recur (rest pairs))))))))
 
 (defn dispatch [conn line]
-  (log conn line)
-  (parse-msg! conn line))
+  (if-let [tokens (msg-tokens line)]
+    (let [[verb args] tokens
+          fname (second (re-find #"^:(.*)" (str verb)))
+          f (find-var (symbol (format "%s/->%s" (str (:ns (meta #'dispatch))) fname)))]
+      (when f
+        (prn f)
+        (f conn args)))
+    (log conn line)))
 
 (defn ping [conn]
   (sendmsg! conn (format "PING %d" (int (/ (System/currentTimeMillis) 1000))))
