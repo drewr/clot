@@ -203,7 +203,7 @@
 
 (defn connection-statuses []
   (map #(format "%s: %s"
-                (connection-uuid-short %)
+                (connection-id %)
                 (if (alive? %) (format "UP %d" (uptime %)) "DOWN")) @*connections*))
 
 (defn make-queue [conn _dispatch & sleep]
