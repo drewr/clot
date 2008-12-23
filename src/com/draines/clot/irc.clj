@@ -15,6 +15,7 @@
 (def *watcher-interval* 10)
 (def *send-delay* 1)
 (def *watch* (atom true))
+(def *next-id* (atom 1))
 (defonce *connections* (atom []))
 
 (def connect)
@@ -26,26 +27,34 @@
     (.write w (format "%s %s" timestamp s))))
 
 (defn connection-id [conn]
+  (:id conn))
+
+(defn connection-uuid [conn]
   (.toUpperCase (str (:uuid conn))))
 
-(defn connection-id-short [conn]
-  (re-find #"^.{4}" (connection-id conn)))
+(defn connection-uuid-short [conn]
+  (re-find #"^.{4}" (connection-uuid conn)))
 
 (defn connection-name [conn]
-  (format "%s@%s/%s" (:nick conn) (:host conn) (connection-id-short conn)))
+  (format "%s@%s/%s" (:nick conn) (:host conn) (connection-uuid-short conn)))
 
-(defn connection [id]
+(defn uuid->connection [id]
   (if (map? id)
     id
     (let [id (.toUpperCase (str id))
           pat (Pattern/compile (format "^%s" id))
           matches (fn [conn]
-                    (when (re-find (.matcher pat (connection-id conn)))
+                    (when (re-find (.matcher pat (connection-uuid conn)))
                       conn))]
       (some matches @*connections*))))
 
+(defn connection [id]
+  (if (map? id)
+    id
+    (some #(if (= id (:id %)) % nil) @*connections*)))
+
 (defn same-connection? [c1 c2]
-  (= (connection-id c1) (connection-id c2)))
+  (= (connection-uuid c1) (connection-uuid c2)))
 
 (defn connection-established? [conn]
   (contains? conn :created))
@@ -67,8 +76,8 @@
        (when *use-console*
          (append-stdout _s))))
   ([conn s]
-     (let [id (connection-id-short conn)]
-       (log (format "[%s] %s" id s)))))
+     (let [id (connection-id conn)]
+       (log (format "[%d] %s" id s)))))
 
 (defn now []
   (Date.))
@@ -191,7 +200,7 @@
 
 (defn connection-statuses []
   (map #(format "%s: %s"
-                (connection-id-short %)
+                (connection-uuid-short %)
                 (if (alive? %) (format "UP %d" (uptime %)) "DOWN")) @*connections*))
 
 (defn make-queue [conn _dispatch & sleep]
@@ -253,7 +262,8 @@
   (let [{:keys [host port nick]} conn
         sock (Socket. host port)
         _conn (merge conn
-                     {:uuid (UUID/randomUUID)
+                     {:id (atom-inc! *next-id*)
+                      :uuid (UUID/randomUUID)
                       :sock sock
                       :reader (get-reader sock)
                       :writer (get-writer sock)
@@ -292,7 +302,7 @@
 (defn log-in [host port nick]
   (let [conn (connect {:host host :port port :nick nick})]
     (register-connection conn)
-    (connection-id-short conn)))
+    (connection-id conn)))
 
 (defn watch [conns]
   (log "watcher: start")
