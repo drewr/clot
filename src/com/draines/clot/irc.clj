@@ -21,10 +21,10 @@
 (def connect)
 
 (defn append-file [filename s]
-  (with-open [w (FileWriter. filename true)
-              timestamp (.format (SimpleDateFormat. "yyyy-MM-dd HH:mm:ss.SSS")
-                                 (java.util.Date.))]
-    (.write w (format "%s %s" timestamp s))))
+  (let [timestamp (.format (SimpleDateFormat. "yyyy-MM-dd HH:mm:ss.SSS")
+                           (java.util.Date.))]
+    (with-open [w (FileWriter. filename true)]
+      (.write w (format "%s %s" timestamp s)))))
 
 (defn connection-id [conn]
   (:id conn))
