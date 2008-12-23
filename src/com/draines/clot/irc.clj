@@ -13,7 +13,7 @@
 (def *channels* ["##clot-test"])
 (def *keepalive-frequency* 45)
 (def *use-console* false)
-(def *max-retries* 10)
+(def *max-failed-pings* 3)
 (def *watcher-interval* 60)
 (def *send-delay* 1)
 (def *watch* (atom true))
@@ -117,11 +117,11 @@
 (defn atom-inc! [a]
   (swap! a inc))
 
-(defn inc-retries! [conn]
-  (atom-inc! (:retries conn)))
+(defn inc-pings! [conn]
+  (atom-inc! (:pings conn)))
 
-(defn reset-retries! [conn]
-  (atom-set! (:retries conn) 0))
+(defn reset-pings! [conn]
+  (atom-set! (:pings conn) 0))
 
 (defn register-connection [conn]
   (swap! *connections* conj conn))
@@ -139,14 +139,14 @@
   (some identity (vals (connection-agent-errors conn))))
 
 (defn alive? [conn]
-  (let [r (:retries conn)
+  (let [r (:pings conn)
         s (:sock conn)]
     (when (and r s)
       (and
        (not (connection-agent-errors? conn))
        (not (.isClosed s))
        (not (.isInputShutdown s))
-       (< @r *max-retries*)))))
+       (< @r *max-failed-pings*)))))
 
 (defn dead? [conn]
   (not (alive? conn)))
@@ -182,7 +182,7 @@
   (log conn (format "-> %s" line)))
 
 (defn do-PONG [conn]
-  (reset-retries! conn))
+  (reset-pings! conn))
 
 (defn parse-msg! [conn msg]
   (cond
@@ -194,7 +194,7 @@
 
 (defn ping [conn]
   (sendmsg! conn (format "PING %d" (int (/ (System/currentTimeMillis) 1000))))
-  (inc-retries! conn))
+  (inc-pings! conn))
 
 (defn reconnectable? [conn]
 ;  (and @(:reconnect conn)
@@ -269,7 +269,7 @@
                                  :sock sock
                                  :reader (get-reader sock)
                                  :writer (get-writer sock)
-                                 :retries (atom 0)
+                                 :pings (atom 0) ; unanswered
                                  :reconnect! (atom false)
                                  :pinger nil
                                  :inq nil
