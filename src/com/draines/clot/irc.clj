@@ -341,6 +341,9 @@
 (defn do-JOIN [conn chan]
   (sendmsg (connection conn) (format "JOIN %s" chan)))
 
+(defn do-IDENTIFY [conn password]
+  (do-PRIVMSG conn "nickserv" (format "identify %s" password)))
+
 (defn log-in [host port nick]
   (let [conn (connect {:host host :port port :nick nick})]
     (register-connection conn)
