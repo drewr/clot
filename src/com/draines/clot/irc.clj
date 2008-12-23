@@ -207,11 +207,6 @@
   (sendmsg! conn (format "PING %d" (int (/ (System/currentTimeMillis) 1000))))
   (inc-pings! conn))
 
-(defn reconnectable? [conn]
-;  (and @(:reconnect conn)
-;       (< 0 @(:remain conn)))
-  true)
-
 (defn connection-statuses []
   (map #(format "%s: %s"
                 (connection-id %)
