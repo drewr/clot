@@ -20,10 +20,10 @@
 (defonce *next-id* (atom 1))
 (defonce *connections* (ref []))
 
-(def log-in)
-(def connect)
-(def alive?)
-(def quit)
+(declare log-in)
+(declare connect)
+(declare alive?)
+(declare quit)
 (declare *watcher*)
 
 (def *irc-verbs*
