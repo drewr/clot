@@ -14,9 +14,9 @@
 (def *keepalive-frequency* 45)
 (def *use-console* false)
 (def *max-failed-pings* 3)
-(def *watcher-interval* 60)
+(def *watcher-interval* 5)
 (def *send-delay* 1)
-(def *watch* (atom true))
+(def *watch?* (atom true))
 (defonce *next-id* (atom 1))
 (defonce *connections* (ref []))
 
@@ -24,6 +24,7 @@
 (def connect)
 (def alive?)
 (def quit)
+(declare *watcher*)
 
 (def *irc-verbs*
      {:PRIVMSG #"^:([^!]+)!n=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"
@@ -341,7 +342,7 @@
     (send-off
      (agent conns)
      (fn resend [_conns]
-       (if @*watch*
+       (if @*watch?*
          (let [to-reconnect (dosync
                              (concat
                               (filter dead? @_conns)
@@ -349,7 +350,7 @@
                waiting? (< 0 (count to-reconnect))]
            (if-not waiting?
              (do
-               (log (statusmsg (connection-statuses @_conns)))
+               ;; (log (statusmsg (connection-statuses @_conns)))
                (Thread/sleep (* 1000 *watcher-interval*)))
              (doseq [c to-reconnect]
                (let [{:keys [host port nick]} c]
@@ -358,6 +359,15 @@
            (send-off *agent* resend))
          (log "watcher: stop"))
        _conns))))
+
+(defn stop-watcher! []
+  (atom-set! *watch?* false))
+
+(defn start-watcher! []
+  (stop-watcher!)
+  (Thread/sleep (+ 500 (* 1000 *watcher-interval*)))
+  (atom-set! *watch?* true)
+  (def *watcher* (watch *connections*)))
 
 (defn do-PRIVMSG [conn chan msg]
   (sendmsg (connection conn) (format "PRIVMSG %s :%s" chan msg)))
@@ -383,8 +393,9 @@
       (do-JOIN conn ch))
     (connection-id conn)))
 
+(start-watcher!)
+
 (comment
-  (watch *connections*)
   (def conn1 (log-in "irc.freenode.net" 6667 "drewr1"))
   (def conn2 (log-in "irc.freenode.net" 6667 "drewr2"))
   (uptime conn1)
