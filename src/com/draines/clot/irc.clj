@@ -364,10 +364,13 @@
   (atom-set! *watch?* false))
 
 (defn start-watcher! []
-  (stop-watcher!)
-  (Thread/sleep (+ 500 (* 1000 *watcher-interval*)))
-  (atom-set! *watch?* true)
-  (def *watcher* (watch *connections*)))
+  (send-off
+   (agent nil)
+   (fn [x]
+     (stop-watcher!)
+     (Thread/sleep (+ 500 (* 1000 *watcher-interval*)))
+     (atom-set! *watch?* true)
+     (def *watcher* (watch *connections*)))))
 
 (defn do-PRIVMSG [conn chan msg]
   (sendmsg (connection conn) (format "PRIVMSG %s :%s" chan msg)))
