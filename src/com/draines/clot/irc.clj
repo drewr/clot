@@ -197,11 +197,10 @@
   @(:quit? conn))
 
 (defn reconnect? [conn]
-  (let [res (when network?
-              (when-not (quit? conn)
-                (or
-                 (errors? conn)
-                 @(:reconnect? conn))))]
+  (let [res (when-not (quit? conn)
+              (or
+               (errors? conn)
+               @(:reconnect? conn)))]
     ;; (log conn (format "reconnect: %s" res))
     res))
 
@@ -345,7 +344,10 @@
 
 (defn make-socket [host port]
   (try
-   (Socket. host port)
+   (let [sock (Socket. host port)
+         localport (.getLocalPort sock)]
+     (log (format "make-socket: connected to %s:%d on %d" host port localport))
+     sock)
    (catch UnknownHostException e
      (log (format "make-socket: host not found: %s" host))
      nil)
@@ -377,7 +379,6 @@
             add-out-queue (fn [m] (merge m {:outq (make-queue m sendmsg! :sleep)}))
             add-pinger (fn [m] (merge m {:pinger (keep-alive m)}))
             add-listener (fn [m] (merge m {:listener (listen m)}))]
-        (log _conn (format "connecting to %s:%d" host port))
         (sendmsg! _conn (format "NICK %s" nick))
         (sendmsg! _conn (format "USER foo 0 * :0.1"))
         (binding [*in* (:reader _conn)]
@@ -423,8 +424,10 @@
              (doseq [c to-reconnect]
                (let [{:keys [host port nick]} c]
                  (log (format "watcher: reconnecting %s@%s" nick host)))
-               (when (reconnect! c)
-                 (quit c))))
+               (when (network? c)
+                 (do
+                   (quit c)
+                   (reconnect! c)))))
            (send-off *agent* resend))
          (log "watcher: stop"))
        _conns))))
@@ -458,6 +461,7 @@
 
 (defn log-in [host port nick & [password]]
   (let [conn (connect {:host host :port port :nick nick})]
+    (log conn (format "log-in: logging in to %s" host port))
     (when conn
       (register-connection conn)
       (when password
