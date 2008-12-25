@@ -248,7 +248,7 @@
 
 (defn ->PRIVMSG [conn args]
   (let [[nick user userhost chan msg] args]
-    (log conn (format "PRIVMSG [%s] %s: %s" chan nick msg))))
+    (log conn (format "PRIVMSG %s <%s> %s" chan nick msg))))
 
 (defn ->JOIN [conn args]
     (log conn (format "JOIN %s" args)))
