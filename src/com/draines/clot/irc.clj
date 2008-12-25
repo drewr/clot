@@ -29,9 +29,12 @@
 (declare *watcher*)
 
 (def *irc-verbs*
-     {:JOIN    #"^:([^!]+)!.=([^@]+)@([^ ]+) JOIN ([^ ]+)"
+     {:PONG    #"^:([^ ]+) PONG ([^ ]+) :(.*)"
       :PRIVMSG #"^:([^!]+)!.=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"
-      :PONG    #"^:([^ ]+) PONG ([^ ]+) :(.*)"})
+      :JOIN    #"^:([^!]+)!.=([^@]+)@([^ ]+) JOIN ([^ ]+)"
+      :QUIT    #"^:([^!]+)!.=([^@]+)@([^ ]+) QUIT :(.*)"
+      :NICK    #"^:([^!]+)!.=([^@]+)@([^ ]+) NICK :(.*)"
+      :MODE    #"^:([^ ]+) MODE ([^ ]+) ([^ ]+) (.*)"})
 
 (defn append-file [filename s]
   (let [timestamp (.format (SimpleDateFormat. "yyyy-MM-dd HH:mm:ss.SSS")
@@ -251,6 +254,15 @@
 
 (defn ->JOIN [conn args]
     (log conn (format "JOIN %s" args)))
+
+(defn ->QUIT [conn args]
+  (log conn (format "QUIT %s" args)))
+
+(defn ->NICK [conn args]
+  (log conn (format "QUIT %s" args)))
+
+(defn ->MODE [conn args]
+  (log conn (format "MODE %s" args)))
 
 (defn msg-tokens [msg]
   (loop [pairs *irc-verbs*]
