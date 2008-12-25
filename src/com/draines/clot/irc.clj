@@ -253,13 +253,13 @@
     (log conn (format "PRIVMSG %s <%s> %s" chan nick msg))))
 
 (defn ->JOIN [conn args]
-    (log conn (format "JOIN %s" args)))
+  (log conn (format "JOIN %s" args)))
 
 (defn ->QUIT [conn args]
   (log conn (format "QUIT %s" args)))
 
 (defn ->NICK [conn args]
-  (log conn (format "QUIT %s" args)))
+  (log conn (format "NICK %s" args)))
 
 (defn ->MODE [conn args]
   (log conn (format "MODE %s" args)))
