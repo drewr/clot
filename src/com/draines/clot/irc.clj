@@ -25,6 +25,7 @@
 (declare alive?)
 (declare quit)
 (declare make-socket)
+(declare reconnect)
 (declare *watcher*)
 
 (def *irc-verbs*
