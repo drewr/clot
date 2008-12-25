@@ -318,7 +318,9 @@
                (send-off *agent* resend)
                c)
              (catch Exception e
-               (.printStackTrace e))))]
+               (log c (with-out-str
+                        (.printStackTrace e)))
+               :error)))]
     (log conn "starting keep-alive")
     (send-off (agent conn) f)))
 
