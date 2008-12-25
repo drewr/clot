@@ -219,7 +219,7 @@
     (stop-incoming-queue _conn)
     (stop-outgoing-queue _conn)
     (.close (:sock _conn))
-    (atom-set! (:quit? conn) true)))
+    (atom-set! (:quit? _conn) true)))
 
 (defn quit-all []
   (dosync
