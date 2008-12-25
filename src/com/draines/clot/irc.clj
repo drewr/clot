@@ -29,7 +29,7 @@
 (declare *watcher*)
 
 (def *irc-verbs*
-     {:PRIVMSG #"^:([^!]+)!n=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"
+     {:PRIVMSG #"^:([^!]+)!.=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"
       :PONG    #"^:([^ ]+) PONG ([^ ]+) :(.*)"})
 
 (defn append-file [filename s]
