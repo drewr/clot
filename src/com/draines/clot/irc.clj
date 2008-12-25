@@ -31,7 +31,7 @@
 (def *irc-verbs*
      {:PONG    #"^:([^ ]+) PONG ([^ ]+) :(.*)"
       :PRIVMSG #"^:([^!]+)!.=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"
-      :JOIN    #"^:([^!]+)!.=([^@]+)@([^ ]+) JOIN ([^ ]+)"
+      :JOIN    #"^:([^!]+)!.=([^@]+)@([^ ]+) JOIN :(.*)"
       :QUIT    #"^:([^!]+)!.=([^@]+)@([^ ]+) QUIT :(.*)"
       :NICK    #"^:([^!]+)!.=([^@]+)@([^ ]+) NICK :(.*)"
       :MODE    #"^:([^ ]+) MODE ([^ ]+) ([^ ]+) (.*)"})
@@ -245,18 +245,21 @@
      (.close (:sock conn)))))
 
 (defn ->PONG [conn args]
-  (reset-pings! conn)
-  (log conn (format "PONG %s" args)))
+  (let [[host host2 time] args]
+    (reset-pings! conn)
+    (log conn (format "PONG %s: %s" host time))))
 
 (defn ->PRIVMSG [conn args]
   (let [[nick user userhost chan msg] args]
     (log conn (format "PRIVMSG %s <%s> %s" chan nick msg))))
 
 (defn ->JOIN [conn args]
-  (log conn (format "JOIN %s" args)))
+  (let [[nick user userhost chan] args]
+    (log conn (format "JOIN %s %s %s@%s" chan nick user userhost))))
 
 (defn ->QUIT [conn args]
-  (log conn (format "QUIT %s" args)))
+  (let [[nick user userhost reason] args]
+    (log conn (format "QUIT %s %s@%s: %s" nick user userhost reason))))
 
 (defn ->NICK [conn args]
   (log conn (format "NICK %s" args)))
