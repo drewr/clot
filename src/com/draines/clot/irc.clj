@@ -29,7 +29,8 @@
 (declare *watcher*)
 
 (def *irc-verbs*
-     {:PRIVMSG #"^:([^!]+)!.=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"
+     {:JOIN    #"^:([^!]+)!.=([^@]+)@([^ ]+) JOIN ([^ ]+)"
+      :PRIVMSG #"^:([^!]+)!.=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"
       :PONG    #"^:([^ ]+) PONG ([^ ]+) :(.*)"})
 
 (defn append-file [filename s]
@@ -248,6 +249,9 @@
 (defn ->PRIVMSG [conn args]
   (let [[nick user userhost chan msg] args]
     (log conn (format "PRIVMSG [%s] %s: %s" chan nick msg))))
+
+(defn ->JOIN [conn args]
+    (log conn (format "JOIN %s" args)))
 
 (defn msg-tokens [msg]
   (loop [pairs *irc-verbs*]
