@@ -262,7 +262,8 @@
     (log conn (format "QUIT %s %s@%s: %s" nick user userhost reason))))
 
 (defn ->NICK [conn args]
-  (log conn (format "NICK %s" args)))
+  (let [[nick user userhost newnick] args]
+    (log conn (format "NICK %s -> %s [%s@%s]" nick newnick user userhost))))
 
 (defn ->MODE [conn args]
   (log conn (format "MODE %s" args)))
