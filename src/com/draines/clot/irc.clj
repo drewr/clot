@@ -17,7 +17,7 @@
 (def *watcher-interval* 3)
 (def *send-delay* 1)
 (def *watch?* (atom true))
-(defonce *next-id* (atom 1))
+(defonce *next-id* (atom 0))
 (defonce *connections* (ref []))
 
 (declare log-in)
