@@ -119,7 +119,7 @@
 (defn stop-outgoing-queue [conn]
   (add-outgoing-message conn "stop"))
 
-(defn toggle [_atom]
+(defn atom-toggle! [_atom]
   (swap! _atom #(not %)))
 
 (defn atom-set! [_atom value]
@@ -356,7 +356,7 @@
          (let [line (try
                      (read-line)
                      (catch SocketException e
-                       (toggle is-connected)
+                       (atom-toggle! is-connected)
                        {:exception e}))]
            (if (and @is-connected line)
              (do
