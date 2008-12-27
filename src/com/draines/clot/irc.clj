@@ -378,7 +378,7 @@
      (log "make-socket: can't create socket")
      nil)
    (catch Exception e
-     (log "make-socket: other fail")
+     (log (format "make-socket: %s" e))
      nil)))
 
 (defn connect [info]
