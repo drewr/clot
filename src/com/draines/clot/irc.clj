@@ -283,7 +283,14 @@
           fname (second (re-find #"^:(.*)" (str verb)))
           f (find-var (symbol (format "%s/->%s" (str (:ns (meta #'dispatch))) fname)))]
       (when f
-        (send-off (agent conn) f args)))
+        (send-off
+         (agent conn)
+         (fn [c a]
+           (try
+            (f c a)
+            (catch Exception e
+              (log c (format "ERROR dispatch %s failed: %s" f e)))))
+         args)))
     (log conn line)))
 
 (defn ping [conn]
