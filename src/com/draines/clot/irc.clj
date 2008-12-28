@@ -47,9 +47,6 @@
 (defn connection-id [conn]
   (:id conn))
 
-(defn connection-uuid [conn]
-  (.toUpperCase (str (:uuid conn))))
-
 (defn connection-uuid-short [conn]
   (re-find #"^.{4}" (connection-uuid conn)))
 
@@ -71,11 +68,16 @@
     id
     (some #(if (= id (:id %)) % nil) @*connections*)))
 
+(defn connection-uuid [conn]
+  (let [c (connection conn)]
+    (.toUpperCase (str (:uuid c)))))
+
 (defn same-connection? [c1 c2]
   (= (connection-uuid c1) (connection-uuid c2)))
 
 (defn connection-established? [conn]
-  (contains? conn :created))
+  (let [c (connection conn)]
+    (contains? c :created)))
 
 (defn outgoing-queues []
   (map #(deref (:outq %)) @*connections*))
@@ -94,7 +96,7 @@
          (send-off *stdout* append-stdout _s))
        (send-off *logger* append-file _s)))
   ([conn s]
-     (let [id (connection-id conn)]
+     (let [id (connection-id (connection conn))]
        (log (format "[%d] %s" id s)))))
 
 (defn now []
@@ -107,13 +109,16 @@
       (int (/ (- now then) 1000)))))
 
 (defn add-incoming-message [conn msg]
-  (.put (:q @(:inq conn)) msg))
+  (let [c (connection conn)]
+    (.put (:q @(:inq c)) msg)))
 
 (defn add-outgoing-message [conn msg]
-  (.put (:q @(:outq conn)) msg))
+  (let [c (connection conn)]
+    (.put (:q @(:outq c)) msg)))
 
 (defn sendmsg [conn msg]
-  (add-outgoing-message conn msg))
+  (let [c (connection conn)]
+    (add-outgoing-message c msg)))
 
 (defn stop-incoming-queue [conn]
   (add-incoming-message conn "stop"))
@@ -134,10 +139,12 @@
   (swap! a inc))
 
 (defn inc-pings! [conn]
-  (atom-inc! (:pings conn)))
+  (let [c (connection conn)]
+    (atom-inc! (:pings c))))
 
 (defn reset-pings! [conn]
-  (atom-set! (:pings conn) 0))
+  (let [c (connection conn)]
+    (atom-set! (:pings c) 0)))
 
 (defn register-connection [conn]
   (dosync
@@ -150,10 +157,11 @@
               (filter #(not (same-connection? conn %)) xs)))))
 
 (defn connection-agent-errors [conn]
-  (reduce #(conj %1 %2) {}
-          (filter identity (for [[k v] conn]
-                             (when (instance? clojure.lang.Agent v)
-                               {k (agent-errors v)})))))
+  (let [c (connection conn)]
+    (reduce #(conj %1 %2) {}
+            (filter identity (for [[k v] c]
+                               (when (instance? clojure.lang.Agent v)
+                                 {k (agent-errors v)}))))))
 
 (defn connection-agent-errors? [conn]
   (filter identity (vals (connection-agent-errors conn))))
@@ -173,17 +181,20 @@
   (not (errors? conn)))
 
 (defn closed-socket? [conn]
-  (when (:sock conn)
-    (.isClosed (:sock conn))))
+  (let [c (connection conn)]
+    (when (:sock c)
+      (.isClosed (:sock c)))))
 
 (defn closed-streams? [conn]
-  (when (:sock conn)
-    (or (.isOutputShutdown (:sock conn))
-        (.isInputShutdown (:sock conn)))))
+  (let [c (connection conn)]
+    (when (:sock c)
+      (or (.isOutputShutdown (:sock c))
+          (.isInputShutdown (:sock c))))))
 
 (defn ping-count-exceeded? [conn]
-  (when (:pings conn)
-    (>= @(:pings conn) *max-failed-pings*)))
+  (let [c (connection conn)]
+    (when (:pings c)
+      (>= @(:pings c) *max-failed-pings*))))
 
 (defn alive? [conn]
   (and
@@ -193,13 +204,15 @@
    (not (ping-count-exceeded? conn))))
 
 (defn dead? [conn]
-  (let [res (not (alive? conn))]
-    (log conn (format "dead: %s" res))
-    (reconnect conn)
+  (let [c (connection conn)
+        res (not (alive? c))]
+    (log c (format "dead: %s" res))
+    (reconnect c)
     res))
 
 (defn quit? [conn]
-  @(:quit? conn))
+  (let [c (connection)]
+    @(:quit? c)))
 
 (defn reconnect? [conn]
   (let [res (when-not (quit? conn)
@@ -209,21 +222,22 @@
     res))
 
 (defn reconnect [conn]
-  (atom-set! (:quit? conn) false)
-  (atom-set! (:reconnect? conn) true))
+  (let [c (connection conn)]
+    (atom-set! (:quit? c) false)
+    (atom-set! (:reconnect? c) true)))
 
 (defn reconnect! [conn]
   (let [{:keys [host port nick]} conn]
     (log-in host port nick)))
 
 (defn quit [conn & do-not-reconnect]
-  (let [_conn (connection conn)]
-    (when (alive? _conn)
-      (log _conn (format "shutting down: %s" (connection-name _conn))))
-    (stop-incoming-queue _conn)
-    (stop-outgoing-queue _conn)
-    (.close (:sock _conn))
-    (atom-set! (:quit? _conn) true)))
+  (let [c (connection conn)]
+    (when (alive? c)
+      (log c (format "shutting down: %s" (connection-name c))))
+    (stop-incoming-queue c)
+    (stop-outgoing-queue c)
+    (.close (:sock c))
+    (atom-set! (:quit? c) true)))
 
 (defn quit-all []
   (log "shutting down all connections")
@@ -239,13 +253,14 @@
   (BufferedWriter. (OutputStreamWriter. (.getOutputStream sock))))
 
 (defn sendmsg! [conn line]
-  (log conn (format "-> %s" line))
-  (try
-   (.write (:writer conn) (format "%s\r\n" line))
-   (.flush (:writer conn))
-   (catch SocketException e
-     (log conn "sendmsg!: can't write, closing socket")
-     (.close (:sock conn)))))
+  (let [c (connection conn)]
+    (log c (format "-> %s" line))
+    (try
+     (.write (:writer c) (format "%s\r\n" line))
+     (.flush (:writer c))
+     (catch SocketException e
+       (log c "sendmsg!: can't write, closing socket")
+       (.close (:sock c))))))
 
 (defn register-handler [handler]
   (swap! *handlers* conj handler))
@@ -267,7 +282,7 @@
             f (find-var (symbol (format "%s/->%s" (str handler) fname)))]
         (when f
           (send-off
-           (agent conn)
+           (agent (connection-id conn))
            (fn [c a]
              (try
               (apply f c a)
@@ -451,16 +466,16 @@
      (def *watcher* (watch *connections*)))))
 
 (defn do-PRIVMSG [conn chan msg]
-  (sendmsg (connection conn) (format "PRIVMSG %s :%s" chan msg)))
+  (sendmsg conn (format "PRIVMSG %s :%s" chan msg)))
 
 (defn do-PART [conn chan]
-  (sendmsg (connection conn) (format "PART %s" chan)))
+  (sendmsg conn (format "PART %s" chan)))
 
 (defn do-WHOIS [conn nick]
-  (sendmsg (connection conn) (format "WHOIS %s" nick)))
+  (sendmsg conn (format "WHOIS %s" nick)))
 
 (defn do-JOIN [conn chan]
-  (sendmsg (connection conn) (format "JOIN %s" chan)))
+  (sendmsg conn (format "JOIN %s" chan)))
 
 (defn do-IDENTIFY [conn password]
   (do-PRIVMSG conn "nickserv" (format "identify %s" password)))
