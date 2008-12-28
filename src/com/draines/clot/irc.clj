@@ -30,12 +30,12 @@
 (declare *watcher*)
 
 (def *irc-verbs*
-     {:PONG    #"^:([^ ]+) PONG ([^ ]+) :(.*)"
-      :PRIVMSG #"^:([^!]+)!.=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"
-      :JOIN    #"^:([^!]+)!.=([^@]+)@([^ ]+) JOIN :(.*)"
-      :QUIT    #"^:([^!]+)!.=([^@]+)@([^ ]+) QUIT :(.*)"
-      :NICK    #"^:([^!]+)!.=([^@]+)@([^ ]+) NICK :(.*)"
-      :MODE    #"^:([^ ]+) MODE ([^ ]+) ([^ ]+) (.*)"})
+     [[:PONG    #"^:([^ ]+) PONG ([^ ]+) :(.*)"]
+      [:PRIVMSG #"^:([^!]+)!.=([^@]+)@([^ ]+) PRIVMSG ([^ ]+) :(.*)"]
+      [:JOIN    #"^:([^!]+)!.=([^@]+)@([^ ]+) JOIN :(.*)"]
+      [:QUIT    #"^:([^!]+)!.=([^@]+)@([^ ]+) QUIT :(.*)"]
+      [:NICK    #"^:([^!]+)!.=([^@]+)@([^ ]+) NICK :(.*)"]
+      [:MODE    #"^:([^ ]+) MODE ([^ ]+) ([^ ]+) (.*)"]])
 
 (defn append-file [filename s]
   (let [timestamp (.format (SimpleDateFormat. "yyyy-MM-dd HH:mm:ss.SSS")
