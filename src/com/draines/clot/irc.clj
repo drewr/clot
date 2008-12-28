@@ -465,19 +465,19 @@
      (atom-set! *watch?* true)
      (def *watcher* (watch *connections*)))))
 
-(defn do-PRIVMSG [conn chan msg]
+(defn irc-privmsg [conn chan msg]
   (sendmsg conn (format "PRIVMSG %s :%s" chan msg)))
 
-(defn do-PART [conn chan]
+(defn irc-part [conn chan]
   (sendmsg conn (format "PART %s" chan)))
 
-(defn do-WHOIS [conn nick]
+(defn irc-whois [conn nick]
   (sendmsg conn (format "WHOIS %s" nick)))
 
-(defn do-JOIN [conn chan]
+(defn irc-join [conn chan]
   (sendmsg conn (format "JOIN %s" chan)))
 
-(defn do-IDENTIFY [conn password]
+(defn irc-identify [conn password]
   (do-PRIVMSG conn "nickserv" (format "identify %s" password)))
 
 (defn log-in [host port nick & [password]]
