@@ -216,13 +216,15 @@
 
 (defn quit [conn & do-not-reconnect]
   (let [_conn (connection conn)]
-    (log _conn (format "shutting down: %s" (connection-name _conn)))
+    (when (alive? _conn)
+      (log _conn (format "shutting down: %s" (connection-name _conn))))
     (stop-incoming-queue _conn)
     (stop-outgoing-queue _conn)
     (.close (:sock _conn))
     (atom-set! (:quit? _conn) true)))
 
 (defn quit-all []
+  (log "shutting down all connections")
   (dosync
    (doseq [conn @*connections*]
      (quit conn)
