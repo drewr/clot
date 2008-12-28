@@ -201,9 +201,8 @@
 
 (defn reconnect? [conn]
   (let [res (when-not (quit? conn)
-              (or
-               (errors? conn)
-               @(:reconnect? conn)))]
+              (or (not (alive? conn))
+                  @(:reconnect? conn)))]
     ;; (log conn (format "reconnect: %s" res))
     res))
 
