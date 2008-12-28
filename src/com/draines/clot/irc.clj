@@ -17,6 +17,7 @@
 (def *watcher-interval* 3)
 (def *send-delay* 1)
 (def *watch?* (atom true))
+(def *handlers* (atom []))
 (defonce *next-id* (atom 0))
 (defonce *connections* (ref []))
 
@@ -246,29 +247,8 @@
      (log conn "sendmsg!: can't write, closing socket")
      (.close (:sock conn)))))
 
-(defn ->PONG [conn args]
-  (let [[host host2 time] args]
-    (reset-pings! conn)
-    (log conn (format "PONG %s: %s" host time))))
-
-(defn ->PRIVMSG [conn args]
-  (let [[nick user userhost chan msg] args]
-    (log conn (format "PRIVMSG %s <%s> %s" chan nick msg))))
-
-(defn ->JOIN [conn args]
-  (let [[nick user userhost chan] args]
-    (log conn (format "JOIN %s %s %s@%s" chan nick user userhost))))
-
-(defn ->QUIT [conn args]
-  (let [[nick user userhost reason] args]
-    (log conn (format "QUIT %s %s@%s: %s" nick user userhost reason))))
-
-(defn ->NICK [conn args]
-  (let [[nick user userhost newnick] args]
-    (log conn (format "NICK %s -> %s [%s@%s]" nick newnick user userhost))))
-
-(defn ->MODE [conn args]
-  (log conn (format "MODE %s" args)))
+(defn register-handler [handler]
+  (swap! *handlers* conj handler))
 
 (defn msg-tokens [msg]
   (loop [pairs *irc-verbs*]
@@ -281,18 +261,19 @@
 
 (defn dispatch [conn line]
   (if-let [tokens (msg-tokens line)]
-    (let [[verb args] tokens
-          fname (second (re-find #"^:(.*)" (str verb)))
-          f (find-var (symbol (format "%s/->%s" (str (:ns (meta #'dispatch))) fname)))]
-      (when f
-        (send-off
-         (agent conn)
-         (fn [c a]
-           (try
-            (f c a)
-            (catch Exception e
-              (log c (format "ERROR dispatch %s failed: %s" f e)))))
-         args)))
+    (doseq [handler @*handlers*]
+      (let [[verb args] tokens
+            fname (second (re-find #"^:(.*)" (str verb)))
+            f (find-var (symbol (format "%s/->%s" (str handler) fname)))]
+        (when f
+          (send-off
+           (agent conn)
+           (fn [c a]
+             (try
+              (f c a)
+              (catch Exception e
+                (log c (format "ERROR dispatch %s failed: %s" f e)))))
+           args))))
     (log conn line)))
 
 (defn ping [conn]
@@ -496,6 +477,7 @@
       (connection-id conn))))
 
 (start-watcher!)
+(register-handler 'com.draines.clot.handlers.log)
 
 (comment
   (def conn1 (log-in "irc.freenode.net" 6667 "drewr1"))
