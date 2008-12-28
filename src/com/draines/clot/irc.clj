@@ -270,7 +270,7 @@
            (agent conn)
            (fn [c a]
              (try
-              (f c a)
+              (apply f c a)
               (catch Exception e
                 (log c (format "ERROR dispatch %s failed: %s" f e)))))
            args))))
