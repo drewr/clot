@@ -479,7 +479,7 @@
   (sendmsg conn (format "JOIN %s" chan)))
 
 (defn irc-identify [conn password]
-  (do-PRIVMSG conn "nickserv" (format "identify %s" password)))
+  (irc-privmsg conn "nickserv" (format "identify %s" password)))
 
 (defn log-in [host port nick & [password]]
   (let [conn (connect {:host host :port port :nick nick})]
@@ -487,9 +487,9 @@
     (when conn
       (register-connection conn)
       (when password
-        (do-IDENTIFY conn password))
+        (irc-identify conn password))
       (doseq [ch *channels*]
-        (do-JOIN conn ch))
+        (irc-join conn ch))
       (connection-id conn))))
 
 (start-watcher!)
