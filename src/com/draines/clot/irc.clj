@@ -418,7 +418,7 @@
                                     (add-out-queue
                                      (add-in-queue
                                       (merge _conn {:created (now)
-                                                    :nick _nick})))))
+                                                    :nick-real (atom _nick)})))))
                    (re-find #"[45].." code) (throw
                                              (Exception.
                                               (format "%s: cannot connect to server" code)))
@@ -448,6 +448,7 @@
                (when (network? c)
                  (do
                    (quit c)
+                   (Thread/sleep (* 1000 *watcher-interval*))
                    (reconnect! c)))))
            (send-off *agent* resend))
          (log "watcher: stop"))
