@@ -39,4 +39,3 @@
   (when-let [[orig] (re-find #"^,g$" msg)]
     (clot/irc-privmsg conn chan (pop-result *last-response*))))
 
-(clot/register-handler 'com.draines.clot.handlers.google)
