@@ -10,7 +10,6 @@
 (def *logfile* "/tmp/clot.log")
 (def *logger* (agent *logfile*))
 (def *stdout* (agent nil))
-(def *channels* ["##clot-test"])
 (def *keepalive-frequency* 45)
 (def *use-console* false)
 (def *max-failed-pings* 2)
@@ -227,8 +226,8 @@
     (atom-set! (:reconnect? c) true)))
 
 (defn reconnect! [conn]
-  (let [{:keys [host port nick]} conn]
-    (log-in host port nick)))
+  (let [{:keys [host port nick channels password]} conn]
+    (log-in host port nick channels password)))
 
 (defn quit [conn & do-not-reconnect]
   (let [c (connection conn)]
@@ -481,15 +480,19 @@
 (defn irc-identify [conn password]
   (irc-privmsg conn "nickserv" (format "identify %s" password)))
 
-(defn log-in [host port nick & [password]]
-  (let [conn (connect {:host host :port port :nick nick})]
+(defn log-in [host port nick channels & [password]]
+  (let [conn (connect {:host host
+                       :port port
+                       :nick nick
+                       :channels channels
+                       :password password})]
     (log conn (format "log-in: logging in to %s" host port))
     (when conn
       (register-connection conn)
       (when password
         (irc-identify conn password))
-      (doseq [ch *channels*]
-        (irc-join conn ch))
+      (when-not (empty? channels)
+        (irc-join conn (s-util/str-join "," channels)))
       (connection-id conn))))
 
 (start-watcher!)
