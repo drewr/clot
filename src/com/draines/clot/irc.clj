@@ -46,11 +46,17 @@
 (defn connection-id [conn]
   (:id conn))
 
+(defn connection [id]
+  (if (map? id)
+    id
+    (some #(if (= id (:id %)) % nil) @*connections*)))
+
+(defn connection-uuid [conn]
+  (let [c (connection conn)]
+    (.toUpperCase (str (:uuid c)))))
+
 (defn connection-uuid-short [conn]
   (re-find #"^.{4}" (connection-uuid conn)))
-
-(defn connection-name [conn]
-  (format "%s@%s/%s" (:nick conn) (:host conn) (connection-uuid-short conn)))
 
 (defn uuid->connection [id]
   (if (map? id)
@@ -62,14 +68,8 @@
                       conn))]
       (some matches @*connections*))))
 
-(defn connection [id]
-  (if (map? id)
-    id
-    (some #(if (= id (:id %)) % nil) @*connections*)))
-
-(defn connection-uuid [conn]
-  (let [c (connection conn)]
-    (.toUpperCase (str (:uuid c)))))
+(defn connection-name [conn]
+  (format "%s@%s/%s" (:nick conn) (:host conn) (connection-uuid-short conn)))
 
 (defn same-connection? [c1 c2]
   (= (connection-uuid c1) (connection-uuid c2)))
