@@ -211,7 +211,7 @@
     res))
 
 (defn quit? [conn]
-  (let [c (connection)]
+  (let [c (connection conn)]
     @(:quit? c)))
 
 (defn reconnect? [conn]
