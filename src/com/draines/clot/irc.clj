@@ -7,8 +7,6 @@
            [java.io InputStreamReader BufferedReader OutputStreamWriter BufferedWriter FileWriter]
            [java.util.concurrent LinkedBlockingQueue]))
 
-(def *logfile* "/tmp/clot.log")
-(def *logger* (agent *logfile*))
 (def *stdout* (agent nil))
 (def *keepalive-frequency* 45)
 (def *use-console* false)
@@ -90,10 +88,8 @@
 
 (defn log
   ([s]
-     (let [_s (format "*** %s\n" s)]
-       (when *use-console*
-         (send-off *stdout* append-stdout _s))
-       (send-off *logger* append-file _s)))
+     (let [_s (format "%s\n" s)]
+       (send-off *stdout* append-stdout _s)))
   ([conn s]
      (let [id (connection-id (connection conn))]
        (log (format "[%d] %s" id s)))))
@@ -494,9 +490,6 @@
       (when-not (empty? channels)
         (irc-join conn (s-util/str-join "," channels)))
       (connection-id conn))))
-
-(start-watcher!)
-(register-handler 'com.draines.clot.handlers.log)
 
 (comment
   (def conn1 (log-in "irc.freenode.net" 6667 "drewr1"))
