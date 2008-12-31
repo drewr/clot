@@ -2,7 +2,9 @@
   (:require [com.draines.clot.irc :as clot]
             [clojure.contrib.str-utils :as s-util]
             [clojure.xml :as xml])
-  (:import [net.sf.json JSONObject]))
+  (:import [net.sf.json JSONObject]
+           [org.apache.commons.httpclient HttpClient]
+           [org.apache.commons.httpclient.methods GetMethod]))
 
 ;; http://code.google.com/apis/ajaxsearch/documentation/reference.html#_intro_fonje
 
