@@ -324,7 +324,7 @@
             :stopped)]
     (send-off (agent {:q (LinkedBlockingQueue.)}) f)))
 
-(defn keep-alive [conn]
+(defn make-pinger [conn]
   (let [f (fn resend [c]
             (try
              (when (alive? c)
@@ -336,7 +336,7 @@
                (log c (with-out-str
                         (.printStackTrace e)))
                :error)))]
-    (log conn "starting keep-alive")
+    (log conn "starting pinger")
     (send-off (agent conn) f)))
 
 (defn listen [conn]
@@ -393,7 +393,7 @@
                                      :created nil) info)
             add-in-queue (fn [m] (merge m {:inq (make-queue m dispatch)}))
             add-out-queue (fn [m] (merge m {:outq (make-queue m sendmsg! :sleep)}))
-            add-pinger (fn [m] (merge m {:pinger (keep-alive m)}))
+            add-pinger (fn [m] (merge m {:pinger (make-pinger m)}))
             add-listener (fn [m] (merge m {:listener (listen m)}))]
         (sendmsg! _conn (format "NICK %s" nick))
         (sendmsg! _conn (format "USER foo 0 * :0.1"))
