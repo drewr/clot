@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo creating Makefile
+m4 -DCONF_JARHOME=$1 Makefile.in > Makefile

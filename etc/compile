@@ -1,0 +1,5 @@
+echo \
+com.draines.clot.irc \
+com.draines.clot.main \
+com.draines.clot.handlers.log \
+com.draines.clot.handlers.google
