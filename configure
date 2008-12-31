@@ -1,4 +1,10 @@
 #!/bin/sh
 
+M4="m4 -DCONF_JARHOME=$1"
+
 echo creating Makefile
-m4 -DCONF_JARHOME=$1 Makefile.in > Makefile
+$M4 Makefile.in > Makefile
+
+echo creating bin/connect
+$M4 bin/connect.in > bin/connect
+chmod +x bin/connect

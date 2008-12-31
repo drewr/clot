@@ -1,0 +1,3 @@
+#!/bin/sh
+
+java -jar CONF_JARHOME/clot.jar $*
