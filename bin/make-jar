@@ -10,7 +10,7 @@ mkdir -p $CLASSES
 
 for jarname in `cat $JARS`; do
   jar=$JARHOME/$jarname
-  echo packaging $jar
+  echo Packaging $jar
   ( cd $CLASSES
     jar tvf $jar | fgrep .class | xargs jar xf $jar )
 done
