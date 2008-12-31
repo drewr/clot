@@ -162,8 +162,10 @@
   (filter identity (vals (connection-agent-errors conn))))
 
 (defn network? [& [conn]]
-  (let [sock (make-socket (:host conn)
-                          (:port conn))]
+  (let [sock (try
+              (make-socket (:host conn) (:port conn))
+              (catch Exception e
+                nil))]
     (when sock
       (do
         (.close sock)
@@ -359,24 +361,18 @@
              line)))))))
 
 (defn make-socket [host port]
-  (try
-   (let [sock (Socket. host port)
-         localport (.getLocalPort sock)]
-     (log (format "make-socket: connected to %s:%d on %d" host port localport))
-     sock)
-   (catch UnknownHostException e
-     (log (format "make-socket: host not found: %s" host))
-     nil)
-   (catch SocketException e
-     (log "make-socket: can't create socket")
-     nil)
-   (catch Exception e
-     (log (format "make-socket: %s" e))
-     nil)))
+  (let [sock (Socket. host port)
+        localport (.getLocalPort sock)]
+    (log (format "make-socket: connected to %s:%d on %d" host port localport))
+    sock))
 
 (defn connect [info]
   (let [{:keys [host port nick]} info
-        sock (make-socket host port)]
+        sock (try
+              (make-socket host port)
+              (catch Exception e
+                (log (format "connect failed: %s" e))
+                nil))]
     (when sock
       (let [_conn (merge (sorted-map :id (atom-inc! *next-id*)
                                      :uuid (UUID/randomUUID)
@@ -438,13 +434,14 @@
                ;; (log (statusmsg (connection-statuses @_conns)))
                (Thread/sleep (* 1000 *watcher-interval*)))
              (doseq [c to-reconnect]
-               (let [{:keys [host port nick]} c]
-                 (log (format "watcher: reconnecting %s@%s" nick host)))
-               (when (network? c)
-                 (do
-                   (quit c)
-                   (Thread/sleep (* 1000 *watcher-interval*))
-                   (reconnect! c)))))
+               (if (network? c)
+                 (let [{:keys [host port nick]} c]
+                   (log (format "watcher: reconnecting %s@%s" nick host))
+                   (do
+                     (quit c)
+                     (Thread/sleep (* 1000 *watcher-interval*))
+                     (reconnect! c)))
+                 (Thread/sleep (* 1000 *watcher-interval*)))))
            (send-off *agent* resend))
          (log "watcher: stop"))
        _conns))))
