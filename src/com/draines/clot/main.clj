@@ -16,4 +16,4 @@
     (setup!)
     (let [c (clot/log-in host port nick channels password)]
       (Thread/sleep 3000)
-      (clot/log (clot/connection-agent-errors c)))))
+      (clot/log c (format "connection errors: %s" (clot/connection-agent-errors c))))))
