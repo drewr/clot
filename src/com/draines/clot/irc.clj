@@ -312,20 +312,6 @@
     (log conn (format "start queue %s" _dispatch))
     (send-off (agent {:q (LinkedBlockingQueue.)}) f)))
 
-(defn make-queue1 [conn _dispatch & sleep]
-  (let [f (fn [queue]
-            (log conn (format "start queue %s" _dispatch))
-            (loop []
-              (let [el (.take (:q queue))]
-                (when-not (= "STOP" (.toUpperCase (str el)))
-                  (_dispatch conn el)
-                  (when sleep
-                    (Thread/sleep (* 1000 *send-delay*)))
-                  (recur))))
-            (log conn (format "stop queue %s" _dispatch))
-            :stopped)]
-    (send-off (agent {:q (LinkedBlockingQueue.)}) f)))
-
 (defn make-pinger [conn]
   (let [f (fn resend [c]
             (try
