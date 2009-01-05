@@ -227,13 +227,19 @@
   (let [{:keys [host port nick channels password]} conn]
     (log-in host port nick channels password)))
 
+(defn close [conn]
+  (let [c (connection conn)]
+    (.shutdownInput (:sock c))
+    (.shutdownOutput (:sock c))
+    (.close (:sock c))))
+
 (defn quit [conn & do-not-reconnect]
   (let [c (connection conn)]
     (when (alive? c)
       (log c (format "shutting down: %s" (connection-name c))))
     (stop-incoming-queue c)
     (stop-outgoing-queue c)
-    (.close (:sock c))
+    (close c)
     (atom-set! (:quit? c) true)))
 
 (defn quit-all []
