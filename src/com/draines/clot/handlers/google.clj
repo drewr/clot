@@ -1,6 +1,6 @@
 (ns com.draines.clot.handlers.google
   (:require [com.draines.clot.irc :as clot]
-            [clojure.contrib.str-utils :as s-util]
+            [clojure.contrib.str-utils :as str-utils]
             [clojure.xml :as xml])
   (:import [net.sf.json JSONObject]
            [org.apache.commons.httpclient HttpClient]
@@ -19,8 +19,8 @@
     (String. (.getResponseBody method))))
 
 (defn google [query page]
-  (let [terms (s-util/re-split #" " query)
-        response (httpget (format *google* (* page *results-per-page*) (s-util/str-join "+" terms)))
+  (let [terms (str-utils/re-split #" " query)
+        response (httpget (format *google* (* page *results-per-page*) (str-utils/str-join "+" terms)))
         json (JSONObject/fromObject response)
         urls (map #(.get % "url") (-> json (.get "responseData") (.get "results")))]
     (lazy-cat urls (google query (inc page)))))

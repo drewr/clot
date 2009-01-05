@@ -1,5 +1,5 @@
 (ns com.draines.clot.irc
-  (:require [clojure.contrib.str-utils :as s-util])
+  (:require [clojure.contrib.str-utils :as str-utils])
   (:import [java.util Date UUID]
            [java.util.regex Pattern]
            [java.text SimpleDateFormat]
@@ -420,7 +420,7 @@
   (let [statusmsg (fn [statuses]
                     (format "watcher: %s"
                             (if statuses
-                              (s-util/str-join ", " statuses)
+                              (str-utils/str-join ", " statuses)
                               "no connections")))]
     (log "watcher: start")
     (send-off
@@ -485,7 +485,7 @@
       (when password
         (irc-identify conn password))
       (when-not (empty? channels)
-        (irc-join conn (s-util/str-join "," channels)))
+        (irc-join conn (str-utils/str-join "," channels)))
       (connection-id conn))))
 
 (comment

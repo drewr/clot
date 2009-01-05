@@ -2,7 +2,7 @@
   (:gen-class)
   (:require [com.draines.clot.irc :as clot]
             [com.draines.clot.handlers log google]
-            [clojure.contrib.str-utils :as s-util]))
+            [clojure.contrib.str-utils :as str-utils]))
 
 (defn setup! []
   (clot/start-watcher!)
@@ -12,7 +12,7 @@
 (defn -main [host port nick password & channels]
   (let [port (Integer/parseInt port)
         password (when-not (= "nil" password) password)
-        channels (s-util/re-split #" " (first channels))]
+        channels (str-utils/re-split #" " (first channels))]
     (setup!)
     (let [c (clot/log-in host port nick channels password)]
       (Thread/sleep 3000)
