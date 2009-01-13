@@ -1,5 +1,6 @@
 (ns com.draines.clot.irc
-  (:require [clojure.contrib.str-utils :as str-utils])
+  (:require [clojure.contrib.str-utils :as str-utils]
+            [com.draines.clot.handlers.system])
   (:import [java.util Date UUID]
            [java.util.regex Pattern]
            [java.text SimpleDateFormat]
@@ -488,9 +489,9 @@
         (irc-join conn (str-utils/str-join "," channels)))
       (connection-id conn))))
 
-(comment
-  (register-handler 'com.draines.clot.handlers.log)
+(register-handler 'com.draines.clot.handlers.system)
 
+(comment
   (def conn1 (log-in "irc.freenode.net" 6667 "drewr1"))
   (def conn2 (log-in "irc.freenode.net" 6667 "drewr2"))
   (uptime conn1)
