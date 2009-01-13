@@ -1,5 +1,6 @@
 (ns com.draines.clot.irc
-  (:require [clojure.contrib.str-utils :as str-utils])
+  (:require [clojure.contrib.str-utils :as str-utils]
+            [com.draines.clot.handlers.system])
   (:import [java.util Date UUID]
            [java.util.regex Pattern]
            [java.text SimpleDateFormat]
@@ -14,17 +15,11 @@
 (def *watcher-interval* 3)
 (def *send-delay* 1)
 (def *watch?* (atom true))
-(def *handlers* (atom (set [])))
+(defonce *handlers* (atom (set [])))
 (defonce *next-id* (atom 0))
 (defonce *connections* (ref []))
 
-(declare log-in)
-(declare connect)
-(declare alive?)
-(declare quit)
-(declare make-socket)
-(declare reconnect)
-(declare *watcher*)
+(declare log-in connect alive? quit make-socket reconnect *watcher*)
 
 (def *irc-verbs*
      [[:PONG    #"^:([^ ]+) PONG ([^ ]+) :(.*)"]
@@ -32,7 +27,10 @@
       [:JOIN    #"^:([^!]+)!.=([^@]+)@([^ ]+) JOIN :(.*)"]
       [:QUIT    #"^:([^!]+)!.=([^@]+)@([^ ]+) QUIT :(.*)"]
       [:NICK    #"^:([^!]+)!.=([^@]+)@([^ ]+) NICK :(.*)"]
-      [:MODE    #"^:([^ ]+) MODE ([^ ]+) ([^ ]+) (.*)"]])
+      [:MODE    #"^:([^ ]+) MODE ([^ ]+) ([^ ]+) (.*)"]
+      [:SERVER  #"^:([^ ]+) (\d\d\d) (.*)"]
+      [:NOTICE  #"^NOTICE ([^ ]+) :(.*)"]
+      [:UNKNOWN #"(.*)"]])
 
 (defn append-file [filename s]
   (let [timestamp (.format (SimpleDateFormat. "yyyy-MM-dd HH:mm:ss.SSS")
@@ -105,11 +103,17 @@
 
 (defn add-incoming-message [conn msg]
   (let [c (connection conn)]
-    (.put (:q @(:inq c)) msg)))
+    (try
+     (.put (:q @(:inq c)) msg)
+     (catch Exception e
+       (log c (format "warning inq: %s" e))))))
 
 (defn add-outgoing-message [conn msg]
   (let [c (connection conn)]
-    (.put (:q @(:outq c)) msg)))
+    (try
+     (.put (:q @(:outq c)) msg)
+     (catch Exception e
+       (log c (format "warning outq: %s" e))))))
 
 (defn sendmsg [conn msg]
   (let [c (connection conn)]
@@ -229,9 +233,12 @@
 
 (defn close [conn]
   (let [c (connection conn)]
-    (.shutdownInput (:sock c))
-    (.shutdownOutput (:sock c))
-    (.close (:sock c))))
+    (try
+     (.shutdownInput (:sock c))
+     (.shutdownOutput (:sock c))
+     (.close (:sock c))
+     (catch Exception e
+       (log conn (format "warning: %s" e))))))
 
 (defn quit [conn & do-not-reconnect]
   (let [c (connection conn)]
@@ -268,31 +275,44 @@
 (defn register-handler [handler]
   (swap! *handlers* conj handler))
 
+(defn unregister-handler [handler]
+  (swap! *handlers* disj handler))
+
 (defn msg-tokens [msg]
   (loop [pairs *irc-verbs*]
     (let [[verb pattern] (first pairs)]
       (when verb
         (let [tokens (re-find pattern msg)]
           (if tokens
-            [verb (rest tokens)]
+            [verb tokens]
             (recur (rest pairs))))))))
 
+(defn server-code [[verb tokens]]
+  (let [msg (first tokens)]
+    (if-let [server-tokens (re-find #"^:.*? (\d\d\d) " msg)]
+      (second server-tokens)
+      "xxx")))
+
 (defn dispatch [conn line]
-  (if-let [tokens (msg-tokens line)]
-    (doseq [handler @*handlers*]
-      (let [[verb args] tokens
-            fname (second (re-find #"^:(.*)" (str verb)))
-            f (find-var (symbol (format "%s/->%s" (str handler) fname)))]
-        (when f
-          (send-off
-           (agent (connection-id conn))
-           (fn [c a]
-             (try
-              (apply f c a)
-              (catch Exception e
-                (log c (format "ERROR dispatch %s failed: %s" f e)))))
-           args))))
-    (log conn line)))
+  (let [tokens (msg-tokens line)]
+    (if tokens
+      (do
+        (log conn line)
+        (doseq [handler @*handlers*]
+          (let [[verb args] tokens
+                fname (second (re-find #"^:(.*)" (str verb)))
+                f (find-var (symbol (format "%s/->%s" (str handler) fname)))]
+            (when f
+              (send-off
+               (agent (connection-id conn))
+               (fn [c a]
+                 (try
+                  (apply f c a)
+                  (catch Exception e
+                    (log c (format "ERROR dispatch %s failed: %s" f e)))))
+               args)))))
+      (log conn (format "no handler found for \"%s\"" line)))
+    tokens))
 
 (defn ping [conn]
   (sendmsg! conn (format "PING %d" (int (/ (System/currentTimeMillis) 1000))))
@@ -390,23 +410,21 @@
                  _nick nick]
             (when line
               (dispatch _conn line)
-              (if-let [codematch (re-find #"^:[^\s]+ (\d\d\d)" line)]
-                (let [code (second codematch)]
-                  (cond
-                   (= code "433") (let [n (str _nick "-")]
-                                    (sendmsg! _conn (format "NICK %s" n))
-                                    (recur (read-line) n))
-                   (= code "004") (add-pinger
-                                   (add-listener
-                                    (add-out-queue
-                                     (add-in-queue
-                                      (merge _conn {:created (now)
-                                                    :nick-real (atom _nick)})))))
-                   (re-find #"[45].." code) (throw
-                                             (Exception.
-                                              (format "%s: cannot connect to server" code)))
-                   :else (recur (read-line) _nick)))
-                (recur (read-line) _nick)))))))))
+              (let [code (server-code (msg-tokens line))]
+                (cond
+                 (= code "433") (let [n (str _nick "-")]
+                                  (sendmsg! _conn (format "NICK %s" n))
+                                  (recur (read-line) n))
+                 (= code "004") (add-pinger
+                                 (add-listener
+                                  (add-out-queue
+                                   (add-in-queue
+                                    (merge _conn {:created (now)
+                                                  :nick-real (atom _nick)})))))
+                 (re-find #"[45].." code) (throw
+                                           (Exception.
+                                            (format "%s: cannot connect to server" code)))
+                 :else (recur (read-line) _nick))))))))))
 
 (defn watch [conns]
   (let [statusmsg (fn [statuses]
@@ -479,6 +497,8 @@
       (when-not (empty? channels)
         (irc-join conn (str-utils/str-join "," channels)))
       (connection-id conn))))
+
+(register-handler 'com.draines.clot.handlers.system)
 
 (comment
   (def conn1 (log-in "irc.freenode.net" 6667 "drewr1"))
