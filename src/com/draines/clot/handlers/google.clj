@@ -34,7 +34,7 @@
      (ref-set r (rest @r))
      x)))
 
-(defn ->PRIVMSG [conn nick user userhost chan msg]
+(defn ->PRIVMSG [conn msg nick user userhost chan msg]
   (when-let [[orig query] (re-find #"^,g (.*)" msg)]
     (push-results *last-response* (take *max-results* (google query 0)))
     (clot/irc-privmsg conn chan (pop-result *last-response*)))
