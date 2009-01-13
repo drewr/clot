@@ -1,6 +1,5 @@
 (ns com.draines.clot.irc
-  (:require [clojure.contrib.str-utils :as str-utils]
-            [com.draines.clot.handlers.system])
+  (:require [clojure.contrib.str-utils :as str-utils])
   (:import [java.util Date UUID]
            [java.util.regex Pattern]
            [java.text SimpleDateFormat]
@@ -498,6 +497,7 @@
         (irc-join conn (str-utils/str-join "," channels)))
       (connection-id conn))))
 
+(require 'com.draines.clot.handlers.system)
 (register-handler 'com.draines.clot.handlers.system)
 
 (comment
