@@ -6,6 +6,7 @@ CLASSES=classes
 NSCOMPILE=$HERE/etc/compile
 JARS=$HERE/etc/jars
 
+[ -d $CLASSES ] && rm -rf $CLASSES
 mkdir -p $CLASSES
 
 for jarname in `cat $JARS`; do
@@ -27,4 +28,4 @@ java \
     com.draines.clot.main \
     . )
 
-rm -rf $CLASSES
+
