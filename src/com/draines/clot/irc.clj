@@ -103,11 +103,17 @@
 
 (defn add-incoming-message [conn msg]
   (let [c (connection conn)]
-    (.put (:q @(:inq c)) msg)))
+    (try
+     (.put (:q @(:inq c)) msg)
+     (catch Exception e
+       (log c (format "warning inq: %s" e))))))
 
 (defn add-outgoing-message [conn msg]
   (let [c (connection conn)]
-    (.put (:q @(:outq c)) msg)))
+    (try
+     (.put (:q @(:outq c)) msg)
+     (catch Exception e
+       (log c (format "warning outq: %s" e))))))
 
 (defn sendmsg [conn msg]
   (let [c (connection conn)]
@@ -227,9 +233,12 @@
 
 (defn close [conn]
   (let [c (connection conn)]
-    (.shutdownInput (:sock c))
-    (.shutdownOutput (:sock c))
-    (.close (:sock c))))
+    (try
+     (.shutdownInput (:sock c))
+     (.shutdownOutput (:sock c))
+     (.close (:sock c))
+     (catch Exception e
+       (log conn (format "warning: %s" e))))))
 
 (defn quit [conn & do-not-reconnect]
   (let [c (connection conn)]
