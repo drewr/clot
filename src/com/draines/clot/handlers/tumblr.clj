@@ -1,16 +1,17 @@
 (ns com.draines.clot.handlers.tumblr
   (:require [com.draines.clot.irc :as clot]
             [clojure.contrib.str-utils :as str-utils])
-  (:use [com.draines.clot.http :only [httppost]]))
+  (:use [com.draines.clot.http :only [httppost]]
+        [clojure.contrib.test-is :only [is deftest run-tests]]))
 
 (def types
-     [[:image {:re #"/^\s*(?:(.*?)\s+)?(http:\S+\.(?:jpe?g|png|gif))(?:\s+(\S.*))?$/"
+     [[:image {:re #"(?i)^\s*(?:(.*?)\s+)?(http:\S+\.(?:jpe?g|png|gif))(?:\s+(\S.*))?$"
                :poster :caption}]
-      [:video {:re #"^\s*(?:(.*?)\s+)?(http://(?:www\.)?youtube\.com/\S+\?\S+)(?:\s+(.*))?$"
+      [:video {:re #"(?i)^\s*(?:(.*?)\s+)?(http://(?:www\.)?youtube\.com/\S+\?\S+)(?:\s+(.*))?$"
                :poster :caption}]
-      [:link {:re #"^\s*(?:(.*?)\s+)?(https?://\S+)\s*(?:\s+(\S.*))?$"
+      [:link {:re #"(?i)^\s*(?:(.*?)\s+)?(https?://\S+)\s*(?:\s+(\S.*))?$"
               :poster :description}]
-      [:quote {:re #"^\s*\"([^\"]+)\"\s+--\s*(.*?)(?:\s+\((https?:.*)\))?$"
+      [:quote {:re #"(?i)^\s*\"([^\"]+)\"\s+--\s*(.*?)(?:\s+\((https?:.*)\))?$"
                :poster :source}]])
 
 (defn type-attrs [type]
@@ -67,12 +68,18 @@
      :quote quote
      :source (or sourcehtml source)}))
 
-(defn find-type [text]
-  (loop [[[type attrs] & pairs] types]
-    (if-let [[orig & matches] (re-find (:re attrs) text)]
-      {:type type :matches matches}
-      (when pairs
-        (recur pairs)))))
+(defn parse
+  {:test (fn []
+           (is (= :link (:type (parse "Foo bar baz http://foo.com"))))
+           (is (= :image (:type (parse "http://foo.com/image.JPG"))))
+           (is (= :video (:type (parse "http://www.youtube.com/watch?v=avch-fRFmbw"))))
+           (is (= :quote (:type (parse "\"Foo!\" --me")))))}
+  ([text]
+     (loop [[[type attrs] & pairs] types]
+       (if-let [[orig & matches] (re-find (:re attrs) text)]
+         {:type type :matches matches}
+         (when pairs
+           (recur pairs))))))
 
 (defn add-poster [nick params]
   (if-let [field (poster-field (:type params))]
@@ -80,7 +87,7 @@
     params))
 
 (defn ->PRIVMSG [conn raw nick user userhost chan message]
-  (when-let [type (find-type message)]
+  (when-let [type (parse message)]
     (let [url (try
                (let [params (add-poster nick (make-params type))]
                  (tumblr-post-url (write-tumblr params)))
@@ -91,3 +98,5 @@
                 (format "created link for %s at %s" nick url))]
       (clot/irc-privmsg conn chan msg))))
 
+
+;(run-tests)
