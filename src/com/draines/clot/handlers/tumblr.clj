@@ -56,7 +56,8 @@
   (let [[before link after] matches]
     {:type :link
      :name (or before after)
-     :url link}))
+     :url link
+     :description ""}))
 
 (defmethod make-params :quote [{:keys [matches]}]
   (let [[quote source link] matches
