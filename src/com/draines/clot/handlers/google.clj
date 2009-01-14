@@ -2,6 +2,7 @@
   (:require [com.draines.clot.irc :as clot]
             [clojure.contrib.str-utils :as str-utils]
             [clojure.xml :as xml])
+  (:use [com.draines.clot.http :only [httpget]])
   (:import [net.sf.json JSONObject]
            [org.apache.commons.httpclient HttpClient]
            [org.apache.commons.httpclient.methods GetMethod]))
@@ -12,11 +13,6 @@
 (def *last-response* (ref []))
 (def *results-per-page* 8)
 (def *max-results* 24)
-
-(defn httpget [url]
-  (let [method (GetMethod. url)
-        client (doto (HttpClient.) (.executeMethod method))]
-    (String. (.getResponseBody method))))
 
 (defn google [query page]
   (let [terms (str-utils/re-split #" " query)
