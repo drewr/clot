@@ -37,10 +37,10 @@
 (defn respond [conn chan]
   (clot/irc-privmsg conn chan (format "!%s" (pop-result *last-response*))))
 
-(defn ->PRIVMSG [conn msg nick user userhost chan msg]
-  (when-let [[orig query] (re-find #"^,g (.*)" msg)]
+(defn ->PRIVMSG [conn raw nick user userhost chan message]
+  (when-let [[orig query] (re-find #"^,g (.*)" message)]
     (push-results *last-response* (take *max-results* (google query 0)))
     (respond conn chan))
-  (when-let [[orig] (re-find #"^,g$" msg)]
+  (when-let [[orig] (re-find #"^,g$" message)]
     (respond conn chan)))
 
