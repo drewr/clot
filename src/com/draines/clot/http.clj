@@ -12,7 +12,6 @@
                  (java.io.InputStreamReader.
                   (.getResponseBodyAsStream method))))))))
 
-
 (defn httppost [url params body]
   (let [method (PostMethod. url)
         client (HttpClient.)]
