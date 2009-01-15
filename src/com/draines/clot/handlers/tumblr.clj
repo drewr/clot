@@ -5,7 +5,7 @@
         [clojure.contrib.test-is :only [is deftest run-tests]]))
 
 (def types
-     [[:image {:re #"(?i)^\s*(?:(.*?)\s+)?(http:\S+\.(?:jpe?g|png|gif))(?:\s+(\S.*))?$"
+     [[:photo {:re #"(?i)^\s*(?:(.*?)\s+)?(http:\S+\.(?:jpe?g|png|gif))(?:\s+(\S.*))?$"
                :poster :caption}]
       [:video {:re #"(?i)^\s*(?:(.*?)\s+)?(http://(?:www\.)?youtube\.com/\S+\?\S+)(?:\s+(.*))?$"
                :poster :caption}]
@@ -47,8 +47,14 @@
 
 (defmulti make-params :type)
 
-(defmethod make-params :image [{:keys [matches]}]
-  (throw (Exception. "don't know how to post an image yet")))
+(defmethod make-params :photo [{:keys [matches]}]
+  (let [[before link after] matches
+        filename (when-let [f (re-find #"(?i).*/(.*)$" link)]
+                   (second f))
+        caption (format "%s <a href=\"%s\">zoom</a>" (or before after "") link)]
+    {:type :photo
+     :caption caption
+     :source link}))
 
 (defmethod make-params :video [{:keys [matches]}]
   (throw (Exception. "don't know how to post a video yet")))
@@ -71,7 +77,7 @@
 (defn parse
   {:test (fn []
            (is (= :link (:type (parse "Foo bar baz http://foo.com"))))
-           (is (= :image (:type (parse "http://foo.com/image.JPG"))))
+           (is (= :photo (:type (parse "http://foo.com/image.JPG"))))
            (is (= :video (:type (parse "http://www.youtube.com/watch?v=avch-fRFmbw"))))
            (is (= :quote (:type (parse "\"Foo!\" --me")))))}
   ([text]
