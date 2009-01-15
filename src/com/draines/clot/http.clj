@@ -6,7 +6,11 @@
 (defn httpget [url]
   (let [method (GetMethod. url)
         client (doto (HttpClient.) (.executeMethod method))]
-    (String. (.getResponseBody method))))
+    (str
+     (concat
+      (line-seq (java.io.BufferedReader.
+                 (java.io.InputStreamReader.
+                  (.getResponseBodyAsStream method))))))))
 
 
 (defn httppost [url params body]
