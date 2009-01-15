@@ -1,7 +1,7 @@
 (ns com.draines.clot.handlers.tumblr
   (:require [com.draines.clot.irc :as clot]
             [clojure.contrib.str-utils :as str-utils])
-  (:use [com.draines.clot.http :only [httppost]]
+  (:use [com.draines.clot.http :only [httppost page-title]]
         [clojure.contrib.test-is :only [is deftest run-tests]]))
 
 (def types
@@ -56,7 +56,7 @@
 (defmethod make-params :link [{:keys [matches]}]
   (let [[before link after] matches]
     {:type :link
-     :name (or before after)
+     :name (or before after (page-title link))
      :url link
      :description ""}))
 
