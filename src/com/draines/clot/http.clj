@@ -25,3 +25,9 @@
     (doto client (.executeMethod method))
     (String. (.getResponseBody method))))
 
+(defn page-title [url]
+  (let [page (httpget url)
+        match (re-find #"(?i)<title>([^>]+)</title>" page)]
+    (when match
+      (second match))))
+
