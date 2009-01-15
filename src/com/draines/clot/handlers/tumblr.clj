@@ -87,10 +87,18 @@
          (when pairs
            (recur pairs))))))
 
-(defn add-poster [nick params]
-  (if-let [field (poster-field (:type params))]
-    (merge params {field (format "%s (posted by %s)" (field params) nick)})
-    params))
+(defn add-poster
+  {:test (fn []
+           (is (= {:type :photo
+                   :caption "Foo Bar (posted by foo)"
+                   :source "http://foo.dom/image.jpg"}
+                  (add-poster "foo" {:type :photo
+                                     :caption "Foo Bar"
+                                     :source "http://foo.dom/image.jpg"}))))}
+  ([nick params]
+     (if-let [field (poster-field (:type params))]
+       (merge params {field (format "%s (posted by %s)" (field params) nick)})
+       params)))
 
 (defn ->PRIVMSG [conn raw nick user userhost chan message]
   (when-let [type (parse message)]
