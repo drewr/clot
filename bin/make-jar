@@ -19,12 +19,11 @@ java \
   -cp src:$CLASSES \
   -Dclojure.compile.path=$CLASSES \
   clojure.lang.Compile \
-  `cat $NSCOMPILE | sh`
-
+  `cat $NSCOMPILE | sh` \
+&& \
 ( cd $CLASSES
   jar cfe \
     $JARHOME/clot.jar \
     com.draines.clot.main \
-    . )
-
-rm -rf $CLASSES
+    . ) \
+&& rm -rf $CLASSES
