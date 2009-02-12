@@ -57,7 +57,11 @@
      :source link}))
 
 (defmethod make-params :video [{:keys [matches]}]
-  (throw (Exception. "don't know how to post a video yet")))
+  (let [[before link after] matches
+        caption (format "%s" (or before after ""))]
+    {:type :video
+     :caption caption
+     :embed link}))
 
 (defmethod make-params :link [{:keys [matches]}]
   (let [[before link after] matches]
