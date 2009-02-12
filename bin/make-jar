@@ -12,7 +12,7 @@ for jarname in `cat $JARS`; do
   jar=$JARHOME/$jarname
   echo Packaging $jar
   ( cd $CLASSES
-    jar tvf $jar | fgrep .class | xargs jar xf $jar )
+    jar tvf $jar | egrep "\.class|\.clj" | xargs jar xf $jar )
 done
 
 java \
