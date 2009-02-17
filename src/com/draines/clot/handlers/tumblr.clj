@@ -106,14 +106,15 @@
 
 (defn ->PRIVMSG [conn raw nick user userhost chan message]
   (when-let [type (parse message)]
-    (let [url (try
-               (let [params (add-poster nick (make-params type))]
-                 (tumblr-post-url (write-tumblr params)))
+    (let [params (make-params type)
+          url (try
+               (let [params2 (add-poster nick params)]
+                 (tumblr-post-url (write-tumblr params2)))
                (catch Exception e
                  e))
           msg (if (isa? (class url) java.lang.Exception)
                 (format "%s: I didn't post because of a %s" nick url)
-                (format "created link for %s at %s" nick url))]
+                (format "created %s for %s at %s" (name (:type params)) nick url))]
       (clot/irc-privmsg conn chan msg))))
 
 
