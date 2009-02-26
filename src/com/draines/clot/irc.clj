@@ -95,10 +95,11 @@
   (Date.))
 
 (defn uptime [conn]
-  (when (alive? conn)
-    (let [then (.getTime (:created conn))
-          now (System/currentTimeMillis)]
-      (int (/ (- now then) 1000)))))
+  (let [c (connection conn)]
+    (when (alive? c)
+      (let [then (.getTime (:created c))
+            now (System/currentTimeMillis)]
+        (int (/ (- now then) 1000))))))
 
 (defn add-incoming-message [conn msg]
   (let [c (connection conn)]
