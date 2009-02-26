@@ -163,7 +163,8 @@
                                  {k (agent-errors v)}))))))
 
 (defn connection-agent-errors? [conn]
-  (filter identity (vals (connection-agent-errors conn))))
+  (let [errs (filter identity (vals (connection-agent-errors conn)))]
+    (if (first errs) errs false)))
 
 (defn network? [& [conn]]
   (let [sock (try
