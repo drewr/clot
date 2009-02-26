@@ -501,8 +501,8 @@
 (register-handler 'com.draines.clot.handlers.system)
 
 (comment
-  (def conn1 (log-in "irc.freenode.net" 6667 "drewr1"))
-  (def conn2 (log-in "irc.freenode.net" 6667 "drewr2"))
+  (def conn1 (log-in "irc.freenode.net" 6667 "drewr1" ["##clot"]))
+  (def conn2 (log-in "irc.freenode.net" 6667 "drewr2" ["##clot"]))
   (uptime conn1)
   (uptime conn2)
   (quit conn1)
