@@ -1,7 +1,6 @@
 (ns com.draines.clot.main
   (:gen-class)
   (:require [com.draines.clot.irc :as clot]
-            [com.draines.clot.handlers google tumblr]
             [clojure.contrib.str-utils :as str-utils]))
 
 (defn setup! []

@@ -274,7 +274,9 @@
        (.close (:sock c))))))
 
 (defn register-handler [handler]
-  (swap! *handlers* conj handler))
+  (require handler)
+  (when-let [ns (find-ns handler)]
+    (swap! *handlers* conj ns)))
 
 (defn unregister-handler [handler]
   (swap! *handlers* disj handler))
@@ -499,7 +501,6 @@
         (irc-join conn (str-utils/str-join "," channels)))
       (connection-id conn))))
 
-(require 'com.draines.clot.handlers.system)
 (register-handler 'com.draines.clot.handlers.system)
 
 (comment
