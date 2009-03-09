@@ -35,7 +35,7 @@
   ([tag html]
      (let [match (re-find
                   (java.util.regex.Pattern/compile
-                   (format "(?i)<%s>([^<]+)</%s>" (name tag) (name tag)))
+                   (format "(?i)<%s.*?>([^<]+)</%s>" (name tag) (name tag)))
                   html)]
        (when match
          (.trim (re-gsub #"\s+" " " (second match)))))))
