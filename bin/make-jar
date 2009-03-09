@@ -19,7 +19,7 @@ java \
   -cp src:$CLASSES \
   -Dclojure.compile.path=$CLASSES \
   clojure.lang.Compile \
-  `cat $NSCOMPILE | sh` \
+  `cat $NSCOMPILE | xargs echo` \
 && \
 ( cd $CLASSES
   jar cfe \
