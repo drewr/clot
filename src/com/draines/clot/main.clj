@@ -6,7 +6,8 @@
 (defn setup! []
   (clot/start-watcher!)
   (clot/register-handler 'com.draines.clot.handlers.google)
-  (clot/register-handler 'com.draines.clot.handlers.tumblr))
+  (clot/register-handler 'com.draines.clot.handlers.tumblr)
+  (clot/register-handler 'com.draines.clot.handlers.bandname))
 
 (defn -main [host port nick password & channels]
   (let [port (Integer/parseInt port)
