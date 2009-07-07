@@ -28,7 +28,7 @@
 
 (defn ->PRIVMSG [conn raw nick user userhost chan message]
   (when (re-find #"^,bn$" message)
-    (irc-privmsg conn chan "foo!")))
+    (irc-privmsg conn chan (bandname))))
 
 (comment
   (run-tests)
