@@ -2,7 +2,7 @@
   (:require [com.draines.clot.irc :as clot]
             [clojure.contrib.str-utils :as str-utils])
   (:use [com.draines.clot.http :only [httppost url-title]]
-        [clojure.contrib.test-is :only [is deftest run-tests]]))
+        [clojure.test :only [is deftest run-tests]]))
 
 (def types
      [[:photo {:re #"(?i)^\s*(?:(.*?)\s+)?(http:\S+\.(?:jpe?g|png|gif))(?:\s+(\S.*))?$"

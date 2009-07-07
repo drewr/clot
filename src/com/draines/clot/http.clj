@@ -1,5 +1,5 @@
 (ns com.draines.clot.http
-  (:use [clojure.contrib.test-is :only [run-tests is]]
+  (:use [clojure.test :only [run-tests is]]
         [clojure.contrib.str-utils :only [re-gsub]])
   (:import [org.apache.commons.httpclient HttpClient]
            [org.apache.commons.httpclient.methods GetMethod PostMethod]))
