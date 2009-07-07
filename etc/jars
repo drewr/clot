@@ -1,4 +1,4 @@
-clojure.jar
+clojure-1.1.0-alpha-SNAPSHOT.jar
 clojure-contrib.jar
 commons-beanutils.jar
 commons-codec-1.3.jar
