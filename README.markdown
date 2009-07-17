@@ -1,4 +1,11 @@
 # Build
 
     ant clean && ant dist
-    java -jar dist/clot-20090716222231+51c9737.jar irc.freenode.net 6667 foo '##foo' foopass
+
+    # clot's jar in here
+    ls -l dist
+
+    # try it out
+    env CLASSPATH=`find $PWD/lib $PWD/dist -name \*.jar | tr '\n' :` \
+      java com.draines.clot.main irc.freenode.net 6667 foo '##foo' foopass
+
