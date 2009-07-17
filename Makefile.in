@@ -1,5 +1,0 @@
-default:
-	bin/make-jar CONF_JARHOME
-
-distclean:
-	rm Makefile
