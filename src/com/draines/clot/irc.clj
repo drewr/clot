@@ -493,6 +493,8 @@
                        :channels channels
                        :password password})]
     (log conn (format "log-in: logging in to %s" host port))
+    (when-not conn
+      (System/exit 1))
     (when conn
       (register-connection conn)
       (when password

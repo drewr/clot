@@ -16,5 +16,6 @@
     <dependency name="commons-logging" rev="1.1.1"/>
     <dependency name="ezmorph" rev="1.0.5"/>
     <dependency name="json-lib" rev="2.2.2-jdk15"/>
+    <dependency name="swank" rev="20090804201540+bfb55c4"/>
   </dependencies>
 </ivy-module>
